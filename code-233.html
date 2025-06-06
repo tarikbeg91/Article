@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Reader with All Features</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f7f6; --text-color: #333; --container-bg: #ffffff;
+            --primary-color: #007bff; --secondary-color: #17a2b8;
+            --border-color: #ddd; --danger-color: #dc3545; --success-color: #28a745;
+            --font-size-base: 16px; --line-height-base: 1.6;
+        }
+        .dark-mode {
+            --bg-color: #121212; --text-color: #e0e0e0; --container-bg: #1e1e1e;
+            --primary-color: #4dabf7; --secondary-color: #4dd0e1;
+            --border-color: #444; --danger-color: #e57373; --success-color: #66bb6a;
+        }
+        .sepia-mode {
+            --bg-color: #f4e8c1; --text-color: #5b4636; --container-bg: #fbf0d9;
+            --primary-color: #795548; --secondary-color: #8d6e63;
+            --border-color: #d7ccc8; --danger-color: #a1887f; --success-color: #7cb342;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color);
+            line-height: var(--line-height-base); transition: background-color 0.3s, color 0.3s;
+            margin: 0; padding-top: 5px;
+        }
+        #progress-bar { position: fixed; top: 0; left: 0; height: 5px; background: var(--primary-color); width: 0%; z-index: 9999; transition: width 0.1s; }
+        .main-container { max-width: 800px; margin: 20px auto; padding: 20px; background-color: var(--container-bg); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+        h1, h2, h3 { color: var(--primary-color); }
+        .tabs { border-bottom: 2px solid var(--border-color); overflow: hidden; margin-bottom: 20px; display: flex; flex-wrap: wrap; }
+        .tab-link { background: transparent; border: none; cursor: pointer; padding: 14px 16px; font-size: 17px; color: var(--text-color); border-bottom: 3px solid transparent; }
+        .tab-link.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: bold; }
+        input[type="url"], input[type="search"], select { background-color: var(--container-bg); color: var(--text-color); border: 1px solid var(--border-color); width: 100%; padding: 12px; box-sizing: border-box; border-radius: 6px; font-size: 16px; margin-top: 10px; }
+        button.tool-btn, .tool-btn-secondary { background-color: var(--primary-color); color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 15px; }
+        .tool-btn-secondary { background-color: var(--secondary-color); margin-left: 10px; }
+        .result-box { background-color: var(--bg-color); margin-top: 15px; padding: 15px; border-radius: 6px; font-size: var(--font-size-base); }
+        .single-story { border-bottom: 2px dashed var(--border-color); padding-bottom: 20px; margin-bottom: 20px; }
+        .single-story img { max-width: 100%; height: auto; display: block; margin: 15px auto; border-radius: 8px; }
+        .story-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .header-buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center;}
+        .header-buttons button { background-color: var(--secondary-color); color: white; border: none; border-radius: 5px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+        .header-buttons .save-btn.saved { background-color: var(--danger-color); }
+        .theme-toggle-container { position: fixed; top: 15px; right: 20px; z-index: 1000; display:flex; gap: 5px;}
+        .theme-toggle { background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 20px; display: flex; justify-content: center; align-items: center; }
+        #ae_loading { margin-top: 15px; color: var(--primary-color); font-style: italic; text-align: center; }
+        .library-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
+        .library-item .delete-btn { background-color: var(--danger-color); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        .library-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;}
+        .library-controls input[type="search"] { width: auto; flex-grow: 1; margin-top:0;}
+        .library-controls select { width: auto; margin-top:0;}
+
+        /* Toast Notification */
+        .toast-notification { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--primary-color); color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10001; font-size: 16px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; }
+        .toast-notification.show { opacity: 1; bottom: 30px; }
+        .toast-notification.error { background-color: var(--danger-color); }
+        .toast-notification.success { background-color: var(--success-color); }
+
+        /* Back to Top Button */
+        #backToTopBtn { display: none; position: fixed; bottom: 20px; right: 20px; z-index: 999; background-color: var(--secondary-color); color: white; border: none; border-radius: 50%; width: 45px; height: 45px; font-size: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        /* Article Settings Panel */
+        .article-settings { background-color: var(--container-bg); padding: 10px; margin-bottom: 15px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; flex-wrap: wrap; align-items: center; gap: 15px;}
+        .article-settings label { font-size: 0.9em; }
+        .article-settings button, .article-settings select { padding: 6px 10px; font-size: 0.9em; background-color: var(--bg-color); color: var(--text-color); border:1px solid var(--border-color); border-radius:4px; cursor:pointer; }
+        .article-settings .tts-speed-control { display: flex; align-items: center; gap: 5px; }
+    </style>
+</head>
+<body>
+    <div id="progress-bar"></div>
+    <div class="theme-toggle-container">
+        <button class="theme-toggle" onclick="toggleTheme('light')">☀️</button>
+        <button class="theme-toggle" onclick="toggleTheme('dark')">🌓</button>
+        <button class="theme-toggle" onclick="toggleTheme('sepia')">📜</button>
+    </div>
+    <div class="main-container">
+        <h1>आर्टिकल रीडर</h1>
+        <div class="tabs">
+            <button class="tab-link active" onclick="openTool(event, 'ArticleExtractor')">आर्टिकल निकालें</button>
+            <button class="tab-link" onclick="openTool(event, 'MyLibrary')">मेरी लाइब्रेरी <span id="library-count">(0)</span></button>
+        </div>
+
+        <div id="ArticleExtractor" class="tool-content" style="display:block;">
+             <p>किसी भी आर्टिकल का लिंक या कैटेगरी पेज का लिंक यहाँ डालें।</p>
+             <input type="url" id="articleUrl" placeholder="https://example.com/some-article">
+             <button class="tool-btn" onclick="ae_startExtraction()">आर्टिकल निकालें</button>
+             <button class="tool-btn-secondary" onclick="clearResults()">परिणाम साफ़ करें</button>
+             
+             <div id="article-settings-panel" style="display:none; margin-top: 20px;">
+                <div class="article-settings">
+                    <div>
+                        <label for="fontSize">फ़ॉन्ट आकार: </label>
+                        <button onclick="changeFontSize(-1)">A-</button>
+                        <button onclick="changeFontSize(1)">A+</button>
+                    </div>
+                    <div class="tts-speed-control">
+                        <label for="ttsSpeed">गति: </label>
+                        <select id="ttsSpeed" onchange="setSpeechRate(this.value)">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1x (सामान्य)</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                    </div>
+                </div>
+             </div>
+
+             <div id="ae_loading" style="display:none;"></div>
+             <div class="result-box" id="ae_result"></div>
+        </div>
+
+        <div id="MyLibrary" class="tool-content">
+            <h2>सेव किए गए आर्टिकल</h2>
+            <div class="library-controls">
+                <input type="search" id="librarySearch" placeholder="टाइटल से खोजें..." oninput="filterLibrary()">
+                <select id="librarySort" onchange="loadLibrary()">
+                    <option value="date_desc">सबसे नया पहले</option>
+                    <option value="date_asc">सबसे पुराना पहले</option>
+                    <option value="title_asc">टाइटल (A-Z)</option>
+                    <option value="title_desc">टाइटल (Z-A)</option>
+                </select>
+            </div>
+            <div id="library-list"></div>
+        </div>
+    </div>
+    <button id="backToTopBtn" onclick="scrollToTop()">⬆️</button>
+    <div id="toast-container"></div>
+    
+    <script>
+    // --- Global Variables & Setup ---
+    const MY_PRIVATE_PROXY = 'https://article-proxyy.rockysmail69.workers.dev';
+    let allStoryLinks = []; let currentLinkIndex = 0; let isLoadingNext = false;
+    const speechApiSupported = 'speechSynthesis' in window;
+    let speechSynth, utterance;
+    let currentFontSize = 16; // Base font size in px
+
+    if (speechApiSupported) {
+        speechSynth = window.speechSynthesis;
+        utterance = new SpeechSynthesisUtterance();
+        utterance.lang = 'hi-IN'; 
+        utterance.rate = 1; // Default speed
+    }
+
+    // --- Core Functions ---
+    function toggleTheme(themeName) {
+        document.body.classList.remove('dark-mode', 'sepia-mode', 'light-mode'); // Remove all theme classes
+        if (themeName === 'dark') document.body.classList.add('dark-mode');
+        else if (themeName === 'sepia') document.body.classList.add('sepia-mode');
+        else document.body.classList.add('light-mode'); // Default or explicit light
+        localStorage.setItem('articleReaderTheme', themeName);
+    }
+
+    function applySavedTheme() {
+        const savedTheme = localStorage.getItem('articleReaderTheme') || 'light';
+        toggleTheme(savedTheme);
+    }
+
+    function openTool(evt, toolName) {
+        document.querySelectorAll('.tool-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('active'));
+        document.getElementById(toolName).style.display = 'block';
+        evt.currentTarget.classList.add('active');
+        if (toolName === 'MyLibrary') loadLibrary();
+        document.getElementById('article-settings-panel').style.display = (toolName === 'ArticleExtractor' && document.getElementById('ae_result').innerHTML.trim() !== '') ? 'block' : 'none';
+    }
+    
+    async function fetchWithProxy(url) {
+        const proxyUrl = `${MY_PRIVATE_PROXY}/?url=${encodeURIComponent(url)}`;
+        try {
+            const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(25000) }); // Increased timeout
+            if (!response.ok) throw new Error(`प्रॉक्सी सर्वर से जवाब नहीं मिला (स्टेटस: ${response.status})`);
+            return await response.text();
+        } catch (error) {
+            if (error.name === 'AbortSignal') {
+                throw new Error('अनुरोध में बहुत अधिक समय लगा (टाइमआउट)।');
+            }
+            throw error;
+        }
+    }
+
+    function createStoryElement(article, sourceUrl) {
+        const storyId = btoa(encodeURIComponent(sourceUrl)); // Safer ID
+        const storyDiv = document.createElement('div');
+        storyDiv.className = 'single-story';
+        storyDiv.id = `story-${storyId}`;
+        
+        const headerDiv = document.createElement('div'); headerDiv.className = 'story-header';
+        const titleH3 = document.createElement('h3'); titleH3.textContent = article.title;
+        const headerButtons = document.createElement('div'); headerButtons.className = 'header-buttons';
+
+        if (speechApiSupported) {
+            const listenBtn = document.createElement('button');
+            listenBtn.textContent = '▶️ सुनें';
+            listenBtn.setAttribute('data-playing', 'false');
+            listenBtn.onclick = () => {
+                const isPlaying = listenBtn.getAttribute('data-playing') === 'true';
+                if (speechSynth.speaking && isPlaying) { // Pausing
+                    speechSynth.pause();
+                    listenBtn.textContent = '▶️ सुनें';
+                    listenBtn.setAttribute('data-playing', 'false');
+                } else if (speechSynth.paused && !isPlaying) { // Resuming
+                    speechSynth.resume();
+                    listenBtn.textContent = '⏸️ पॉज़ करें';
+                    listenBtn.setAttribute('data-playing', 'true');
+                } else { // Starting new or restarting after stop/end
+                    speechSynth.cancel(); // Stop any previous speech
+                    utterance.text = article.title + ". " + article.textContent;
+                    speechSynth.speak(utterance);
+                    listenBtn.textContent = '⏸️ पॉज़ करें';
+                    listenBtn.setAttribute('data-playing', 'true');
+                }
+            };
+            utterance.onend = () => { 
+                listenBtn.textContent = '▶️ सुनें'; 
+                listenBtn.setAttribute('data-playing', 'false');
+            };
+             utterance.onerror = (event) => {
+                console.error("SpeechSynthesisUtterance.onerror", event);
+                showToast(`बोलने में त्रुटि: ${event.error}`, 'error');
+                listenBtn.textContent = '▶️ सुनें'; 
+                listenBtn.setAttribute('data-playing', 'false');
+            };
+            headerButtons.appendChild(listenBtn);
+        }
+
+        const downloadMp3Btn = document.createElement('button');
+        downloadMp3Btn.innerHTML = '🗣️ MP3';
+        downloadMp3Btn.onclick = (e) => downloadTextAsMp3(article.textContent, article.title, e.currentTarget);
+        headerButtons.appendChild(downloadMp3Btn);
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'save-btn';
+        saveBtn.innerHTML = isSaved(sourceUrl) ? '❤️ सेव है' : '🤍 सेव करें';
+        if (isSaved(sourceUrl)) saveBtn.classList.add('saved');
+        saveBtn.onclick = () => toggleSaveArticle(article, sourceUrl, saveBtn);
+        headerButtons.appendChild(saveBtn);
+        
+        const shareWhatsapp = document.createElement('button');
+        shareWhatsapp.innerHTML = 'WhatsApp';
+        shareWhatsapp.onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(article.title + '\n' + sourceUrl)}`, '_blank');
+        headerButtons.appendChild(shareWhatsapp);
+
+        headerDiv.append(titleH3, headerButtons);
+        
+        const wordCount = article.textContent.split(/\s+/).filter(Boolean).length;
+        const readingTime = Math.ceil(wordCount / 200); // Adjusted for Hindi reading speed
+        const authorP = document.createElement('p');
+        authorP.innerHTML = `<em style="font-size: 0.9em;">लेखक: ${article.byline || 'उपलब्ध नहीं'} | पढ़ने का समय: ~${readingTime} मिनट</em>`;
+        
+        const contentDiv = document.createElement('div');
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = article.content;
+        const images = tempDiv.querySelectorAll('img');
+        images.forEach(img => {
+            const originalSrc = img.getAttribute('src');
+            if (originalSrc) {
+                try {
+                    const absoluteSrc = new URL(originalSrc, sourceUrl).href;
+                    img.setAttribute('src', absoluteSrc);
+                } catch (e) {
+                    console.warn("Invalid image URL:", originalSrc, "on page:", sourceUrl);
+                    // Optionally remove or replace broken images
+                    // img.remove(); 
+                }
+            }
+            // Remove lazy loading attributes that might prevent image loading via proxy
+            img.removeAttribute('loading');
+            if (img.dataset.src) { img.src = new URL(img.dataset.src, sourceUrl).href; }
+        });
+        contentDiv.innerHTML = tempDiv.innerHTML;
+        
+        storyDiv.append(headerDiv, authorP, document.createElement('hr'), contentDiv);
+        return storyDiv;
+    }
+
+    async function downloadTextAsMp3(text, filename, btn) {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = 'प्रोसेसिंग...'; btn.disabled = true;
+        const chunks = text.match(/.{1,180}/g) || []; // Slightly smaller chunks for TTS URL length
+        const audioBlobs = [];
+        try {
+            for (let i = 0; i < chunks.length; i++) {
+                btn.innerHTML = `भाग ${i+1}/${chunks.length}...`;
+                const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunks[i])}&tl=hi&client=tw-ob&prev=input`;
+                const audioResponse = await fetch(`${MY_PRIVATE_PROXY}/?url=${encodeURIComponent(ttsUrl)}`);
+                if (!audioResponse.ok) throw new Error('TTS API से ऑडियो नहीं मिला।');
+                audioBlobs.push(await audioResponse.blob());
+            }
+            if (audioBlobs.length === 0) throw new Error('कोई ऑडियो डेटा नहीं मिला।');
+            const combinedBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
+            const downloadUrl = URL.createObjectURL(combinedBlob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `${filename.replace(/[^a-z0-9\u0900-\u097F\s]/gi, '_').replace(/\s+/g, '_')}.mp3`;
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(downloadUrl);
+            showToast("MP3 डाउनलोड शुरू हुआ!", "success");
+        } catch (error) {
+            console.error('MP3 बनाने में त्रुटि:', error);
+            showToast('MP3 बनाने में त्रुटि: ' + error.message, 'error');
+        } finally {
+            btn.innerHTML = originalText; btn.disabled = false;
+        }
+    }
+
+    async function loadNextArticle() {
+        if (isLoadingNext || currentLinkIndex >= allStoryLinks.length) return;
+        isLoadingNext = true;
+        const loadingDiv = document.getElementById('ae_loading');
+        loadingDiv.style.display = 'block';
+        loadingDiv.innerText = `अगला आर्टिकल (${currentLinkIndex + 1}/${allStoryLinks.length}) लोड हो रहा है...`;
+        try {
+            const link = allStoryLinks[currentLinkIndex];
+            const html = await fetchWithProxy(link);
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            // Set base URL for Readability to resolve relative URLs correctly
+            doc.head.insertAdjacentHTML('beforeend', `<base href="${link}">`);
+            const article = new Readability(doc).parse();
+
+            if (article && article.content) {
+                document.getElementById('ae_result').appendChild(createStoryElement(article, link));
+                document.getElementById('article-settings-panel').style.display = 'block';
+            } else {
+                showToast(`आर्टिकल "${link}" से कंटेंट नहीं निकाल सका।`, 'error');
+            }
+            currentLinkIndex++;
+        } catch (e) {
+            console.error("अगला आर्टिकल लोड करने में विफल:", e);
+            showToast(`आर्टिकल लोड करने में विफल: ${e.message}`, 'error');
+            currentLinkIndex++; // Try next one even if current fails
+        } finally {
+            isLoadingNext = false; 
+            if (currentLinkIndex >= allStoryLinks.length) {
+                loadingDiv.innerText = "सभी आर्टिकल लोड हो गए।";
+                setTimeout(() => loadingDiv.style.display = 'none', 2000);
+            } else {
+                 loadingDiv.style.display = 'none';
+            }
+        }
+    }
+
+    async function ae_startExtraction() {
+        const urlInput = document.getElementById('articleUrl').value.trim();
+        const loadingDiv = document.getElementById('ae_loading');
+        const resultDiv = document.getElementById('ae_result');
+        if (!urlInput) { showToast('कृपया एक URL डालें।', 'error'); return; }
+        
+        // Validate URL (basic)
+        try { new URL(urlInput); } catch (_) { showToast('अमान्य URL डाला गया है।', 'error'); return; }
+
+        loadingDiv.style.display = 'block'; resultDiv.innerHTML = '';
+        allStoryLinks = []; currentLinkIndex = 0;
+        if (speechApiSupported && speechSynth.speaking) speechSynth.cancel();
+        document.getElementById('article-settings-panel').style.display = 'none';
+
+        try {
+            loadingDiv.innerText = "पेज का विश्लेषण किया जा रहा है...";
+            const html = await fetchWithProxy(urlInput);
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            doc.head.insertAdjacentHTML('beforeend', `<base href="${urlInput}">`); // For Readability
+            
+            const mainArticle = new Readability(doc.cloneNode(true)).parse();
+            
+            if (mainArticle && mainArticle.content && mainArticle.textContent.length > 150) { // Check for min length
+                allStoryLinks = [urlInput];
+            } else {
+                // More robust link finding
+                let potentialLinks = new Set();
+                // Common patterns for article links
+                doc.querySelectorAll('article a[href], .post-title a[href], .story-title a[href], h2 > a[href], h3 > a[href], a[itemprop="url"]').forEach(a => {
+                    try {
+                        const absUrl = new URL(a.href, urlInput).href;
+                        if (!absUrl.includes('#') && absUrl.startsWith('http')) { // Basic filter
+                           potentialLinks.add(absUrl);
+                        }
+                    } catch (e) { /* ignore invalid URLs */ }
+                });
+                allStoryLinks = Array.from(potentialLinks);
+
+                if (allStoryLinks.length === 0) throw new Error("इस पेज पर कोई आर्टिकल लिंक नहीं मिला।");
+                showToast(`${allStoryLinks.length} संभावित आर्टिकल मिले। लोड हो रहे हैं...`);
+            }
+            await loadNextArticle(); // Load first
+            if (allStoryLinks.length > 1) await loadNextArticle(); // Load second immediately if multiple
+        } catch (error) {
+            console.error("Extraction error:", error);
+            resultDiv.innerHTML = `<p class="error-message">त्रुटि: ${error.message}</p>`;
+            showToast(`त्रुटि: ${error.message}`, 'error');
+            loadingDiv.style.display = 'none';
+        }
+    }
+    
+    function clearResults() {
+        document.getElementById('ae_result').innerHTML = '';
+        document.getElementById('articleUrl').value = '';
+        allStoryLinks = []; currentLinkIndex = 0;
+        if (speechApiSupported && speechSynth.speaking) speechSynth.cancel();
+        document.getElementById('article-settings-panel').style.display = 'none';
+        showToast("परिणाम साफ़ कर दिए गए हैं।");
+    }
+
+    // --- Library Functions ---
+    function getLibrary() { return JSON.parse(localStorage.getItem('myArticleLibrary_v2') || '{}'); } // New key for new structure
+    function saveLibrary(library) { localStorage.setItem('myArticleLibrary_v2', JSON.stringify(library)); updateLibraryCount(); }
+    function isSaved(url) { return !!getLibrary()[btoa(encodeURIComponent(url))]; }
+    
+    function toggleSaveArticle(article, url, btn) {
+        const library = getLibrary(); 
+        const storyId = btoa(encodeURIComponent(url));
+        if (library[storyId]) {
+            delete library[storyId];
+            btn.innerHTML = '🤍 सेव करें';
+            btn.classList.remove('saved');
+            showToast("आर्टिकल लाइब्रेरी से हटा दिया गया।");
+        } else {
+            library[storyId] = { 
+                title: article.title, 
+                content: article.content, 
+                byline: article.byline, 
+                url: url,
+                savedAt: new Date().toISOString() // Save timestamp
+            };
+            btn.innerHTML = '❤️ सेव है';
+            btn.classList.add('saved');
+            showToast("आर्टिकल लाइब्रेरी में सेव हो गया!", "success");
+        }
+        saveLibrary(library);
+    }
+
+    function loadLibrary() {
+        const library = getLibrary();
+        const listDiv = document.getElementById('library-list');
+        const searchTerm = document.getElementById('librarySearch').value.toLowerCase();
+        const sortOrder = document.getElementById('librarySort').value;
+
+        let itemsArray = Object.entries(library).map(([id, item]) => ({id, ...item}));
+
+        // Filter
+        if (searchTerm) {
+            itemsArray = itemsArray.filter(item => item.title.toLowerCase().includes(searchTerm));
+        }
+
+        // Sort
+        itemsArray.sort((a, b) => {
+            switch (sortOrder) {
+                case 'date_asc': return new Date(a.savedAt) - new Date(b.savedAt);
+                case 'title_asc': return a.title.localeCompare(b.title, 'hi');
+                case 'title_desc': return b.title.localeCompare(a.title, 'hi');
+                case 'date_desc': // Fallthrough (default)
+                default: return new Date(b.savedAt) - new Date(a.savedAt);
+            }
+        });
+        
+        listDiv.innerHTML = (itemsArray.length === 0) ? '<p>आपकी लाइब्रेरी खाली है या खोज से कोई परिणाम नहीं मिला।</p>' : '';
+        
+        itemsArray.forEach(itemEntry => {
+            const item = itemEntry; // item already has id and other properties
+            const itemDiv = document.createElement('div'); itemDiv.className = 'library-item';
+            const titleSpan = document.createElement('span'); titleSpan.textContent = item.title;
+            titleSpan.style.cursor = 'pointer';
+            titleSpan.onclick = () => showSavedArticle(item);
+            
+            const deleteBtn = document.createElement('button'); deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = 'हटाएँ';
+            deleteBtn.onclick = (e) => { 
+                e.stopPropagation(); 
+                const currentLib = getLibrary();
+                delete currentLib[item.id]; 
+                saveLibrary(currentLib); 
+                loadLibrary(); // Refresh list
+                showToast("आर्टिकल हटा दिया गया।");
+            };
+            itemDiv.append(titleSpan, deleteBtn);
+            listDiv.appendChild(itemDiv);
+        });
+    }
+
+    function filterLibrary() { loadLibrary(); } // Re-load to apply filter & sort
+
+    function showSavedArticle(articleData) {
+        openTool({currentTarget: document.querySelector('.tab-link[onclick*="ArticleExtractor"]')}, 'ArticleExtractor');
+        const resultDiv = document.getElementById('ae_result');
+        resultDiv.innerHTML = '';
+        resultDiv.appendChild(createStoryElement(articleData, articleData.url));
+        allStoryLinks = []; // Clear fetched links
+        document.getElementById('article-settings-panel').style.display = 'block';
+        window.scrollTo(0,0); // Scroll to top to see the article
+    }
+    function updateLibraryCount() {
+        document.getElementById('library-count').textContent = `(${Object.keys(getLibrary()).length})`;
+    }
+
+    // --- UI Enhancement Functions ---
+    function changeFontSize(delta) {
+        const resultBox = document.getElementById('ae_result');
+        let currentSize = parseFloat(window.getComputedStyle(resultBox).fontSize);
+        currentSize += delta;
+        if (currentSize < 10) currentSize = 10; // Min size
+        if (currentSize > 30) currentSize = 30; // Max size
+        resultBox.style.fontSize = currentSize + 'px';
+        localStorage.setItem('articleReaderFontSize', currentSize);
+    }
+
+    function applySavedFontSize() {
+        const savedSize = localStorage.getItem('articleReaderFontSize');
+        if (savedSize) {
+            document.getElementById('ae_result').style.fontSize = savedSize + 'px';
+        }
+    }
+    
+    function setSpeechRate(rate) {
+        if (speechApiSupported && utterance) {
+            utterance.rate = parseFloat(rate);
+            localStorage.setItem('articleReaderSpeechRate', rate);
+        }
+    }
+
+    function applySavedSpeechRate() {
+        const savedRate = localStorage.getItem('articleReaderSpeechRate');
+        if (savedRate) {
+            document.getElementById('ttsSpeed').value = savedRate;
+            setSpeechRate(savedRate);
+        }
+    }
+
+    function showToast(message, type = 'info') { // types: info, success, error
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast-notification ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => { toast.classList.add('show'); }, 100); // Trigger animation
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => { toast.remove(); }, 500); // Remove after fade out
+        }, 3000);
+    }
+
+    function scrollToTop() { window.scrollTo({top: 0, behavior: 'smooth'}); }
+
+    // --- Event Listeners ---
+    window.onscroll = () => {
+        const progressBar = document.getElementById('progress-bar');
+        const backToTopBtn = document.getElementById('backToTopBtn');
+        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+        
+        if(totalHeight > 0) {
+            progressBar.style.width = `${(window.pageYOffset / totalHeight) * 100}%`;
+        } else {
+            progressBar.style.width = '0%';
+        }
+
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 600 && allStoryLinks.length > 0 && currentLinkIndex < allStoryLinks.length) { 
+            loadNextArticle(); 
+        }
+
+        if (document.body.scrollTop > 100 || document.documentElement.scrollTop > 100) {
+            backToTopBtn.style.display = "block";
+        } else {
+            backToTopBtn.style.display = "none";
+        }
+    };
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        applySavedTheme();
+        updateLibraryCount();
+        applySavedFontSize();
+        applySavedSpeechRate();
+        // Set initial state for ArticleExtractor tab
+        document.getElementById('ArticleExtractor').style.display = 'block';
+        document.querySelector('.tab-link[onclick*="ArticleExtractor"]').classList.add('active');
+    });
+    </script>
+</body>
+</html>
