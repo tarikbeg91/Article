@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Article Reader with All Features</title>
+    <title>Article Reader with All Features (Single File SW)</title>
     <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.min.js"></script>
     <style>
+        /* ... आपकी सारी CSS यहाँ ... */
         :root {
             --bg-color: #f4f7f6; --text-color: #333; --container-bg: #ffffff;
             --primary-color: #007bff; --secondary-color: #17a2b8;
@@ -34,9 +35,11 @@
         .tabs { border-bottom: 2px solid var(--border-color); overflow: hidden; margin-bottom: 20px; display: flex; flex-wrap: wrap; }
         .tab-link { background: transparent; border: none; cursor: pointer; padding: 14px 16px; font-size: 17px; color: var(--text-color); border-bottom: 3px solid transparent; }
         .tab-link.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: bold; }
-        input[type="url"], input[type="search"], select { background-color: var(--container-bg); color: var(--text-color); border: 1px solid var(--border-color); width: 100%; padding: 12px; box-sizing: border-box; border-radius: 6px; font-size: 16px; margin-top: 10px; }
+        input[type="url"], input[type="search"], input[type="text"], select { background-color: var(--container-bg); color: var(--text-color); border: 1px solid var(--border-color); width: 100%; padding: 12px; box-sizing: border-box; border-radius: 6px; font-size: 16px; margin-top: 10px; }
         button.tool-btn, .tool-btn-secondary { background-color: var(--primary-color); color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 15px; }
         .tool-btn-secondary { background-color: var(--secondary-color); margin-left: 10px; }
+        #clearUrlBtn { height: 46.4px; margin-top: 10px; font-size: 1.2em; background-color: var(--danger-color); color:white; border-radius:6px; border:none; cursor:pointer; padding: 0 12px;}
+
         .result-box { background-color: var(--bg-color); margin-top: 15px; padding: 15px; border-radius: 6px; font-size: var(--font-size-base); }
         .single-story { border-bottom: 2px dashed var(--border-color); padding-bottom: 20px; margin-bottom: 20px; }
         .single-story img { max-width: 100%; height: auto; display: block; margin: 15px auto; border-radius: 8px; }
@@ -47,17 +50,21 @@
         .theme-toggle-container { position: fixed; top: 15px; right: 20px; z-index: 1000; display:flex; gap: 5px;}
         .theme-toggle { background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 20px; display: flex; justify-content: center; align-items: center; }
         #ae_loading { margin-top: 15px; color: var(--primary-color); font-style: italic; text-align: center; }
-        .library-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
-        .library-item .delete-btn { background-color: var(--danger-color); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-        .library-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;}
-        .library-controls input[type="search"] { width: auto; flex-grow: 1; margin-top:0;}
-        .library-controls select { width: auto; margin-top:0;}
+        .library-item, .bookmark-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
+        .library-item .item-title, .bookmark-item .item-title { flex-grow: 1; cursor: pointer; }
+        .library-item.selected, .bookmark-item.selected { background-color: var(--border-color); }
+        .library-item .delete-btn, .bookmark-item .delete-btn { background-color: var(--danger-color); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-left:10px; }
+        .library-controls, .bookmark-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center;}
+        .library-controls input[type="search"], .bookmark-controls input[type="search"] { width: auto; flex-grow: 1; margin-top:0;}
+        .library-controls select, .bookmark-controls select { width: auto; margin-top:0;}
 
         /* Toast Notification */
         .toast-notification { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--primary-color); color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10001; font-size: 16px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; }
         .toast-notification.show { opacity: 1; bottom: 30px; }
         .toast-notification.error { background-color: var(--danger-color); }
         .toast-notification.success { background-color: var(--success-color); }
+        .toast-notification.warning { background-color: #ffc107; color: #333; }
+
 
         /* Back to Top Button */
         #backToTopBtn { display: none; position: fixed; bottom: 20px; right: 20px; z-index: 999; background-color: var(--secondary-color); color: white; border: none; border-radius: 50%; width: 45px; height: 45px; font-size: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
@@ -68,9 +75,103 @@
         .article-settings button, .article-settings select { padding: 6px 10px; font-size: 0.9em; background-color: var(--bg-color); color: var(--text-color); border:1px solid var(--border-color); border-radius:4px; cursor:pointer; }
         .article-settings .tts-speed-control { display: flex; align-items: center; gap: 5px; }
         #voiceSelectorContainer { margin-left: 10px; }
+        
+        /* Internal Navigation History */
+        #internalNavHistoryContainer {
+            margin-top: 10px;
+            padding: 5px 0;
+        }
+        #internalNavHistoryContainer button {
+            font-size: 0.9em;
+            padding: 5px 10px;
+            margin-right: 5px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #internalNavHistoryContainer button:disabled {
+            background-color: var(--border-color);
+            cursor: not-allowed;
+        }
+
+        /* Bookmark form styling */
+        #bookmarkForm div {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        #bookmarkForm input[type="text"], #bookmarkForm input[type="url"], #bookmarkForm select {
+            flex-grow: 1;
+            margin-top: 0; 
+        }
+        #bookmarkForm button {
+            margin-top: 0; 
+        }
+        #library-content-wrapper {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 20px;
+        }
+        #library-list-container {
+            flex: 1; 
+            min-width: 250px; 
+            max-height: 60vh; 
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+            padding-right: 15px;
+        }
+        #library-article-view {
+            flex: 2; 
+            min-width: 300px;
+        }
+        #lib-article-text-content {
+            white-space: pre-wrap; 
+            background-color: var(--bg-color); 
+            padding: 15px; 
+            border-radius: 6px; 
+            max-height: 50vh; 
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            line-height: 1.7;
+        }
+        #lib-article-current-tags .tag-item {
+            background-color: var(--secondary-color); color: white;
+            padding: 3px 8px; border-radius: 4px;
+            margin-right: 5px; margin-bottom: 5px; font-size: 0.9em;
+            display: inline-block;
+        }
+        #lib-article-current-tags .tag-remove-btn {
+            margin-left: 4px; border: none; background: transparent;
+            color: white; cursor: pointer; font-weight: bold;
+        }
+
+         /* Fallback Share Modal */
+        .fallback-share-modal {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background-color: var(--container-bg); color: var(--text-color);
+            padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 10002; width: 90%; max-width: 500px; border: 1px solid var(--border-color);
+        }
+        .fallback-share-modal h4 { margin-top: 0; color: var(--primary-color); }
+        .fallback-share-modal textarea { 
+            width: 100%; height: 150px; margin-bottom: 10px; font-size: 0.9em; 
+            padding: 5px; box-sizing: border-box; background-color: var(--bg-color); 
+            color: var(--text-color); border: 1px solid var(--border-color);
+        }
+        .fallback-share-modal button, .fallback-share-modal a {
+            margin-right: 10px; margin-bottom: 5px; padding: 8px 12px; 
+            border-radius: 4px; text-decoration: none; font-size: 0.9em;
+        }
+        .fallback-share-modal button.primary { background-color: var(--primary-color); color: white; border: none; }
+        .fallback-share-modal button.danger { background-color: var(--danger-color); color: white; border: none; float: right; }
+        .fallback-share-modal a { background-color: var(--secondary-color); color: white; display: inline-block; }
     </style>
 </head>
 <body>
+    <!-- ... आपका सारा HTML कंटेंट यहाँ ... -->
     <div id="progress-bar"></div>
     <div class="theme-toggle-container">
         <button class="theme-toggle" onclick="toggleTheme('light')" title="लाइट मोड">☀️</button>
@@ -79,15 +180,52 @@
     </div>
     <div class="main-container">
         <h1>आर्टिकल रीडर</h1>
+
+        <div id="googleSearchContainer" style="margin-bottom: 15px; display: flex; gap: 5px;">
+            <input type="search" id="googleSearchQuery" placeholder="गूगल पर खोजें..." style="flex-grow: 1; margin-top:0;">
+            <button onclick="performGoogleSearch()" class="tool-btn" style="margin-top:0; padding: 12px 15px;" title="खोजें">🔍</button>
+        </div>
+
+        <div id="internalNavHistoryContainer" style="display: none;">
+            <button id="historyBackBtn" onclick="navigateHistory(-1)" disabled>⬅️ पिछला</button>
+            <button id="historyForwardBtn" onclick="navigateHistory(1)" disabled>➡️ अगला</button>
+        </div>
         <div class="tabs">
             <button class="tab-link active" onclick="openTool(event, 'ArticleExtractor')">आर्टिकल निकालें</button>
             <button class="tab-link" onclick="openTool(event, 'MyLibrary')">मेरी लाइब्रेरी <span id="library-count">(0)</span></button>
+            <button class="tab-link" onclick="openTool(event, 'Bookmarks')">बुकमार्क <span id="bookmark-count">(0)</span></button>
         </div>
 
         <div id="ArticleExtractor" class="tool-content" style="display:block;">
-             <p>किसी भी आर्टिकल का लिंक या कैटेगरी पेज का लिंक यहाँ डालें।</p>
-             <input type="url" id="articleUrl" placeholder="https://example.com/some-article">
+             <p>किसी भी आर्टिकल का लिंक, कैटेगरी पेज या वेबसाइट का होमपेज लिंक यहाँ डालें।</p>
+             <div style="display: flex; align-items: center; gap: 5px;">
+                <input type="url" id="articleUrl" placeholder="https://example.com/" style="flex-grow: 1; margin-top:0;">
+                <button id="clearUrlBtn" onclick="clearUrlInput()" title="URL साफ़ करें">✗</button>
+            </div>
+             
+             <div style="margin-top: 10px; margin-bottom: 5px; display: flex; flex-wrap: wrap; align-items: center; gap: 15px;">
+                 <div>
+                    <input type="checkbox" id="crawlSiteToggle" name="crawlSiteToggle" checked onchange="toggleDepthSelector()">
+                    <label for="crawlSiteToggle" style="font-size: 0.9em; cursor:pointer;">इस URL से जुड़े अन्य आर्टिकल भी खोजें</label>
+                 </div>
+                 <div id="depthSelectorContainer" style="display: inline-block;">
+                    <label for="crawlDepth" style="font-size: 0.9em;">खोज की गहराई:</label>
+                    <select id="crawlDepth" name="crawlDepth" style="font-size: 0.9em; padding: 5px;">
+                        <option value="0">केवल यह पेज (या इस पेज के लिंक)</option>
+                        <option value="1" selected>1 स्तर गहरा</option>
+                        <option value="2">2 स्तर गहरा</option>
+                        <option value="3">3 स्तर गहरा (धीमा हो सकता है)</option>
+                    </select>
+                 </div>
+             </div>
+             <div style="margin-top: 15px; margin-bottom: 5px;">
+                 <input type="search" id="extractorSearch" placeholder="वर्तमान आर्टिकल्स में खोजें..." oninput="filterExtractedArticles()" style="width: calc(100% - 145px); margin-right: 10px; margin-top:0;">
+                 <button onclick="clearExtractorSearch()" class="tool-btn-secondary" style="padding: 10px 15px; margin-top: 0; font-size:0.9em;">खोज साफ़ करें</button>
+             </div>
+
+
              <button class="tool-btn" onclick="ae_startExtraction()">आर्टिकल निकालें</button>
+             <button id="toggleCrawlBtn" class="tool-btn-secondary" onclick="toggleCrawling()" style="display: none;">⏹️ क्रॉलिंग रोकें</button>
              <button class="tool-btn-secondary" onclick="clearResults()">परिणाम साफ़ करें</button>
              
              <div id="article-settings-panel" style="display:none; margin-top: 20px;">
@@ -112,6 +250,13 @@
                         <label for="voiceSelector">आवाज़ चुनें: </label>
                         <select id="voiceSelector" onchange="setSpeechVoice(this.options[this.selectedIndex].getAttribute('data-name'))" title="बोलने की आवाज़ बदलें"></select>
                     </div>
+                     <div>
+                        <label for="displayMode">डिस्प्ले मोड:</label>
+                        <select id="displayMode" onchange="setDisplayMode(this.value)" title="डिस्प्ले मोड बदलें">
+                            <option value="image-text" selected>इमेज और टेक्स्ट</option>
+                            <option value="text-only">केवल टेक्स्ट</option>
+                        </select>
+                    </div>
                 </div>
              </div>
 
@@ -129,68 +274,340 @@
                     <option value="title_asc">टाइटल (A-Z)</option>
                     <option value="title_desc">टाइटल (Z-A)</option>
                 </select>
+                <div id="libraryTagFilterContainer" style="display:inline-block; margin-left:10px;">
+                    <label for="libraryTagFilter" style="font-size:0.9em;">टैग फ़िल्टर:</label>
+                    <select id="libraryTagFilter" onchange="loadLibrary()" style="font-size:0.9em; padding:5px; width:auto; margin-top:0;">
+                        <option value="">सभी टैग</option>
+                    </select>
+                </div>
             </div>
-            <div id="library-list"></div>
+             <div class="library-controls" style="margin-top:5px;">
+                <button onclick="exportLibrary()" class="tool-btn-secondary" style="margin-top:0; margin-left:0; font-size:0.9em; padding:8px 12px;">लाइब्रेरी एक्सपोर्ट करें</button>
+                <input type="file" id="importLibraryFile" accept=".json" onchange="importLibraryHandler(event)" style="display:none;">
+                <button onclick="document.getElementById('importLibraryFile').click()" class="tool-btn-secondary" style="margin-top:0; font-size:0.9em; padding:8px 12px;">लाइब्रेरी इंपोर्ट करें</button>
+            </div>
+
+            <div id="library-content-wrapper">
+                <div id="library-list-container">
+                    <div id="library-list"></div>
+                </div>
+                <div id="library-article-view" style="display: none;">
+                    <h3 id="lib-article-title"></h3>
+                    <p style="margin-top:0; margin-bottom: 5px;"><small>मूल URL: <a id="lib-article-original-url" href="#" target="_blank" rel="noopener noreferrer"></a></small></p>
+                    <div style="margin-bottom:15px; margin-top:5px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <button onclick="copyLibraryArticleText()" class="tool-btn-secondary" style="padding: 8px 12px; font-size: 0.9em; margin-left:0;">पूरा टेक्स्ट कॉपी करें</button>
+                        <button id="shareLibArticleBtn" class="tool-btn-secondary" style="padding: 8px 12px; font-size: 0.9em; background-color: var(--success-color);">शेयर करें</button>
+                        
+                        <div style="margin-left:auto;"> 
+                            <label for="libFontSize" style="font-size:0.9em;">फ़ॉन्ट: </label>
+                            <button onclick="changeLibraryFontSize(-1)" title="फ़ॉन्ट घटाएं" style="padding:5px 8px; font-size:0.8em;">A-</button>
+                            <button onclick="changeLibraryFontSize(1)" title="फ़ॉन्ट बढ़ाएं" style="padding:5px 8px; font-size:0.8em;">A+</button>
+                        </div>
+                    </div>
+                    <div id="lib-article-text-content"></div>
+                     <div id="lib-article-tags-container" style="margin-top: 15px;">
+                        <h4>टैग्स:</h4>
+                        <div id="lib-article-current-tags" style="margin-bottom:10px;"></div>
+                        <div style="display: flex; gap: 5px; align-items:center;">
+                            <input type="text" id="lib-new-tag-input" placeholder="नया टैग जोड़ें" style="flex-grow:1; margin-top:0; font-size:0.9em; padding:8px;">
+                            <button onclick="addTagToCurrentLibraryArticle()" class="tool-btn-secondary" style="margin-top:0;padding: 8px 12px; font-size: 0.9em;">टैग जोड़ें</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="Bookmarks" class="tool-content" style="display:none;">
+            <h2>मेरे बुकमार्क</h2>
+            <div id="bookmarkFolderManagement" style="margin-bottom:15px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                <input type="text" id="newBookmarkFolderName" placeholder="नया फ़ोल्डर नाम" style="width:auto; margin-top:0; flex-grow:1; min-width:150px;">
+                <button onclick="createBookmarkFolder()" class="tool-btn-secondary" style="margin-top:0; padding:10px 15px;">फ़ोल्डर बनाएं</button>
+                <div style="flex-basis:100%; height:0; display:none;" class="folder-break"></div> <!-- Flexbox wrap helper -->
+                <label for="bookmarkFolderFilter" style="font-size:0.9em;">फ़ोल्डर द्वारा फ़िल्टर:</label>
+                <select id="bookmarkFolderFilter" onchange="loadBookmarks()" style="width:auto; margin-top:0; padding:10px; flex-grow:1; min-width:150px;">
+                    <option value="">सभी फ़ोल्डर</option>
+                </select>
+            </div>
+            <div id="bookmarkForm">
+                 <div>
+                    <input type="text" id="bookmarkName" placeholder="बुकमार्क का नाम (वैकल्पिक)">
+                    <input type="url" id="bookmarkUrl" placeholder="वेबसाइट का URL">
+                 </div>
+                 <div style="align-items:center;">
+                    <label for="bookmarkAssignFolder" style="font-size:0.9em; margin-right:5px;">फ़ोल्डर में जोड़ें:</label>
+                    <select id="bookmarkAssignFolder" style="flex-grow:1; padding:10px;">
+                        <option value="Default">डिफ़ॉल्ट फ़ोल्डर</option>
+                    </select>
+                 </div>
+                <button class="tool-btn" onclick="addBookmark()">बुकमार्क जोड़ें</button>
+            </div>
+            <div style="margin-top:15px; margin-bottom:15px; display:flex; gap:10px;">
+                <button onclick="exportBookmarks()" class="tool-btn-secondary" style="margin-top:0; margin-left:0; font-size:0.9em; padding:8px 12px;">बुकमार्क एक्सपोर्ट करें</button>
+                <input type="file" id="importBookmarksFile" accept=".json" onchange="importBookmarksHandler(event)" style="display:none;">
+                <button onclick="document.getElementById('importBookmarksFile').click()" class="tool-btn-secondary" style="margin-top:0; font-size:0.9em; padding:8px 12px;">बुकमार्क इंपोर्ट करें</button>
+            </div>
+            <div id="bookmark-list" style="margin-top: 20px;"></div>
         </div>
     </div>
     <button id="backToTopBtn" onclick="scrollToTop()" title="ऊपर जाएं">⬆️</button>
     <div id="toast-container"></div>
     
     <script>
-    // --- Global Variables & Setup ---
-    const MY_PRIVATE_PROXY = 'https://article-proxyy.rockysmail69.workers.dev'; // अपना प्रॉक्सी URL यहाँ डालें
+    // --- Embedded Service Worker Code ---
+    // यह कोड एक स्ट्रिंग के रूप में है जिसे बाद में Blob में बदला जाएगा।
+    // महत्वपूर्ण: इस स्ट्रिंग के अंदर बैक-टिक्स (`) या स्ट्रिंग टर्मिनेटर का उपयोग सावधानी से करें।
+    // यदि आपको इस कोड में बैक-टिक्स का उपयोग करना है, तो उन्हें एस्केप करें: \`
+    const serviceWorkerCode = `
+        const STATIC_CACHE_NAME = 'article-reader-static-v3';
+        const ARTICLE_CACHE_NAME = 'article-reader-articles-v3';
+        const PROXY_DOMAIN = 'article-proxyy.rockysmail69.workers.dev'; // प्रॉक्सी डोमेन यहाँ रखें
+
+        // ऐप शेल की फ़ाइलें - यह महत्वपूर्ण है कि यह मुख्य HTML फ़ाइल को इंगित करे
+        // Blob URL के साथ, APP_SHELL_FILES का कैशिंग थोड़ा अलग तरीके से काम कर सकता है।
+        // मुख्य HTML फ़ाइल को 'fetch' इवेंट में नेटवर्क-फर्स्ट या कैश-फर्स्ट रणनीति से हैंडल करना बेहतर हो सकता है।
+        // अभी के लिए, हम इसे खाली छोड़ सकते हैं या सिर्फ मुख्य दस्तावेज़ का URL (यदि पता हो) शामिल कर सकते हैं।
+        // चूंकि हम एक ही फ़ाइल में हैं, APP_SHELL_FILES की पारंपरिक अवधारणा थोड़ी बदल जाती है।
+        // सर्विस वर्कर का मुख्य फोकस ARTICLE_CACHE पर होगा।
+        const APP_SHELL_FILES = [
+            // './', // यह Blob URL के संदर्भ में काम नहीं करेगा
+            // './code-254.html' // यह भी सीधे काम नहीं करेगा
+        ]; // हम इसे fetch में हैंडल करेंगे
+
+        self.addEventListener('install', event => {
+            console.log('[SW] Install event. Caches: S:', STATIC_CACHE_NAME, 'A:', ARTICLE_CACHE_NAME);
+            event.waitUntil(
+                Promise.all([
+                    caches.open(STATIC_CACHE_NAME), // स्टैटिक कैश बनाएं भले ही हम इसे ज्यादा इस्तेमाल न करें
+                    caches.open(ARTICLE_CACHE_NAME)  // आर्टिकल कैश बनाएं
+                ]).then(() => {
+                    console.log('[SW] Caches opened during install.');
+                    // यदि APP_SHELL_FILES में कुछ होता, तो हम उसे यहाँ कैश करते:
+                    // caches.open(STATIC_CACHE_NAME).then(cache => cache.addAll(APP_SHELL_FILES));
+                }).catch(error => {
+                    console.error('[SW] App shell caching/cache opening failed:', error);
+                })
+            );
+            self.skipWaiting(); // नए SW को तुरंत सक्रिय करें
+        });
+
+        self.addEventListener('activate', event => {
+            console.log('[SW] Activate event');
+            event.waitUntil(
+                caches.keys().then(cacheNames => {
+                    return Promise.all(
+                        cacheNames.map(cacheName => {
+                            if (cacheName !== STATIC_CACHE_NAME && cacheName !== ARTICLE_CACHE_NAME) {
+                                console.log('[SW] Deleting old cache:', cacheName);
+                                return caches.delete(cacheName);
+                            }
+                        })
+                    );
+                }).then(() => {
+                    console.log('[SW] Claiming clients.');
+                    return self.clients.claim();
+                })
+            );
+        });
+
+        self.addEventListener('fetch', event => {
+            const requestUrl = new URL(event.request.url);
+
+            if (event.request.method !== 'GET') {
+                // console.log('[SW] Non-GET request, skipping:', event.request.method, requestUrl.pathname);
+                return;
+            }
+
+            // प्रॉक्सी अनुरोधों को सीधे जाने दें
+            if (requestUrl.host === PROXY_DOMAIN || requestUrl.pathname.includes(PROXY_DOMAIN)) {
+                // console.log('[SW] Proxy request, fetching from network:', requestUrl.href);
+                return fetch(event.request);
+            }
+            
+            // CDN अनुरोधों (जैसे Readability) को सीधे जाने दें
+            if (requestUrl.host === 'cdn.jsdelivr.net') {
+                // console.log('[SW] CDN request, fetching from network:', requestUrl.href);
+                return fetch(event.request);
+            }
+
+
+            // मुख्य HTML दस्तावेज़ के लिए (यदि हम स्कोप '/' सेट कर सकते हैं)
+            // यह जटिल है क्योंकि Blob URL का origin अलग होता है।
+            // इसे सरल रखने के लिए, हम मुख्य HTML को कैश नहीं करेंगे, केवल आर्टिकल।
+            // यदि requestUrl.pathname === self.registration.scope (या मुख्य HTML का पाथ)
+            // तो आप इसे STATIC_CACHE से सर्व करने का प्रयास कर सकते हैं।
+
+            // लाइब्रेरी आर्टिकल के लिए (JSON रिस्पॉन्स की उम्मीद)
+            // हम मान रहे हैं कि आर्टिकल का अनुरोध उसके मूल URL से किया जाएगा।
+            event.respondWith(
+                caches.open(ARTICLE_CACHE_NAME).then(articleCache => {
+                    return articleCache.match(event.request).then(cachedResponse => {
+                        if (cachedResponse) {
+                            console.log('[SW] Serving from ARTICLE cache:', event.request.url);
+                            return cachedResponse;
+                        }
+                        
+                        // यदि आर्टिकल कैश में नहीं है, तो नेटवर्क पर जाएं
+                        // यह प्रॉक्सी के माध्यम से नहीं जाना चाहिए, यह मूल आर्टिकल URL है
+                        console.log('[SW] Article not in cache, fetching from network (expecting this to fail if offline):', event.request.url);
+                        return fetch(event.request).catch(err => {
+                             console.warn('[SW] Network fetch failed for article (or non-article resource):', event.request.url, err);
+                             // यदि यह एक नेविगेशन अनुरोध है और ऑफ़लाइन है, तो एक ऑफ़लाइन पेज दिखाएं (अभी लागू नहीं)
+                             // if (event.request.mode === 'navigate') {
+                             // return caches.match('/offline.html'); // एक सामान्य ऑफ़लाइन पेज
+                             // }
+                             // गैर-आर्टिकल अनुरोधों के लिए, बस त्रुटि दें
+                             throw err; 
+                        });
+                    });
+                })
+            );
+        });
+
+        self.addEventListener('message', event => {
+            if (event.data && event.data.action === 'cache-article' && event.data.url && event.data.article) {
+                console.log('[SW] Message: cache-article:', event.data.url);
+                const articleData = event.data.article; 
+                const requestToCache = new Request(event.data.url); // मूल URL का उपयोग कुंजी के रूप में करें
+                const responseToCache = new Response(JSON.stringify(articleData), {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                caches.open(ARTICLE_CACHE_NAME).then(cache => {
+                    cache.put(requestToCache, responseToCache)
+                        .then(() => console.log('[SW] Article cached:', event.data.url))
+                        .catch(err => console.error('[SW] Error caching article:', err));
+                }).catch(err => console.error('[SW] Error opening ARTICLE_CACHE for caching:', err));
+            } else if (event.data && event.data.action === 'delete-article-from-cache' && event.data.url) {
+                console.log('[SW] Message: delete-article-from-cache:', event.data.url);
+                const requestToDelete = new Request(event.data.url);
+                caches.open(ARTICLE_CACHE_NAME).then(cache => {
+                    cache.delete(requestToDelete)
+                        .then(wasDeleted => {
+                            if (wasDeleted) console.log('[SW] Article deleted from cache:', event.data.url);
+                            else console.log('[SW] Article not found in cache to delete:', event.data.url);
+                        })
+                        .catch(err => console.error('[SW] Error deleting article from cache:', err));
+                }).catch(err => console.error('[SW] Error opening ARTICLE_CACHE for deletion:', err));
+            } else {
+                console.log('[SW] Received unhandled message:', event.data);
+            }
+        });
+    `; // सर्विस वर्कर कोड स्ट्रिंग का अंत
+
+
+    // --- Global Variables & Setup (मुख्य ऐप) ---
+    const MY_PRIVATE_PROXY = 'https://article-proxyy.rockysmail69.workers.dev'; 
+    // ... बाकी सभी ग्लोबल वेरिएबल्स यहाँ ...
     let allStoryLinks = []; let currentLinkIndex = 0; let isLoadingNext = false;
     const speechApiSupported = 'speechSynthesis' in window;
     let speechSynth, utterance;
+
+    const MAX_TOTAL_ARTICLES_TO_QUEUE = 50; 
+    const MAX_FETCH_FAILURES_IN_ROW = 5;
+
+    let navigationHistory = [];
+    let currentHistoryIndex = -1;
+    let isNavigatingHistory = false;
+    let currentDisplayMode = 'image-text'; 
+    let isCrawlingPaused = false;
+
+    const STORAGE_KEY_THEME = 'articleReaderTheme_s1';
+    const STORAGE_KEY_LIBRARY = 'articleReaderLibrary_s3'; // Version bump
+    const STORAGE_KEY_FONT_SIZE = 'articleReaderFontSize_s1';
+    const STORAGE_KEY_LIBRARY_FONT_SIZE = 'articleReaderLibraryFontSize_s1';
+    const STORAGE_KEY_SPEECH_RATE = 'articleReaderSpeechRate_s1';
+    const STORAGE_KEY_VOICE_NAME = 'articleReaderVoiceName_s1';
+    const STORAGE_KEY_DISPLAY_MODE = 'articleReaderDisplayMode_s1';
+    const STORAGE_KEY_BOOKMARKS = 'articleReaderBookmarks_s3'; // Version bump
+    const STORAGE_KEY_OFFLINE_ARTICLE = 'articleReaderOfflineArticle_s1';
     
     if (speechApiSupported) {
         speechSynth = window.speechSynthesis;
         utterance = new SpeechSynthesisUtterance();
-        // lang और voice को populateVoiceList या setSpeechVoice में सेट किया जाएगा
-        utterance.rate = 1; // Default speed
+        utterance.rate = 1; 
     }
+
+
+    // --- बाकी सभी मुख्य ऐप जावास्क्रिप्ट फ़ंक्शन यहाँ ---
+    // toggleTheme, applySavedTheme, openTool, fetchWithProxy, createStoryElement,
+    // document.addEventListener('click', ...), downloadTextAsMp3, loadNextArticleIfIdle,
+    // loadNextArticle, toggleDepthSelector, toggleCrawling, ae_startExtraction,
+    // clearResults, clearUrlInput, filterExtractedArticles, clearExtractorSearch,
+    // getLibrary, saveLibrary, isSaved, toggleSaveArticle, loadLibrary, filterLibrary,
+    // showSavedArticle, populateTagFilter, displayArticleTags, addTagToCurrentLibraryArticle,
+    // removeTagFromCurrentLibraryArticle, copyLibraryArticleText, shareLibraryArticle,
+    // displayFallbackShareOptions, updateLibraryCount, getBookmarks, saveBookmarks,
+    // addBookmark, loadBookmarks, getBookmarkFolders, populateBookmarkFolderSelectors,
+    // createBookmarkFolder, updateBookmarkCount, changeFontSize, applySavedFontSize,
+    // changeLibraryFontSize, applySavedLibraryFontSize, setSpeechRate, applySavedSpeechRate,
+    // setDisplayMode, applySavedDisplayMode, populateVoiceList, setSpeechVoice,
+    // showToast, scrollToTop, addToHistory, updateHistoryButtons, navigateHistory,
+    // displayOfflineArticle, exportData, exportLibrary, exportBookmarks, importData,
+    // importLibraryHandler, importBookmarksHandler, window.onscroll, performGoogleSearch
+
+    // ... (यहाँ आपके पिछले उत्तर से सभी JS फ़ंक्शन पेस्ट करें, `DOMContentLoaded` से ठीक पहले तक) ...
+    // --- Global Variables & Setup ---
+    // ... (आपके सभी ग्लोबल वेरिएबल्स यहाँ) ...
 
     // --- Core Functions ---
     function toggleTheme(themeName) {
         document.body.classList.remove('dark-mode', 'sepia-mode', 'light-mode');
         if (themeName === 'dark') document.body.classList.add('dark-mode');
         else if (themeName === 'sepia') document.body.classList.add('sepia-mode');
-        else document.body.classList.add('light-mode');
-        localStorage.setItem('articleReaderTheme', themeName);
+        else document.body.classList.add('light-mode'); 
+        localStorage.setItem(STORAGE_KEY_THEME, themeName);
     }
 
     function applySavedTheme() {
-        const savedTheme = localStorage.getItem('articleReaderTheme') || 'light';
+        const savedTheme = localStorage.getItem(STORAGE_KEY_THEME) || 'light';
         toggleTheme(savedTheme);
     }
 
     function openTool(evt, toolName) {
         document.querySelectorAll('.tool-content').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('active'));
-        document.getElementById(toolName).style.display = 'block';
-        if (evt && evt.currentTarget) { // Ensure evt.currentTarget exists
+        const toolElement = document.getElementById(toolName);
+        if (toolElement) toolElement.style.display = 'block';
+        
+        if (evt && evt.currentTarget) {
            evt.currentTarget.classList.add('active');
-        } else if (toolName === 'ArticleExtractor') { // Fallback for programmatic open
+        } else if (toolName === 'ArticleExtractor') { 
             const extractorTab = document.querySelector('.tab-link[onclick*="ArticleExtractor"]');
             if (extractorTab) extractorTab.classList.add('active');
         }
 
+        const historyContainer = document.getElementById('internalNavHistoryContainer');
+        const toggleCrawlBtn = document.getElementById('toggleCrawlBtn');
+        const libArticleView = document.getElementById('library-article-view'); 
 
-        if (toolName === 'MyLibrary') loadLibrary();
+
+        if (toolName === 'MyLibrary' || toolName === 'Bookmarks') {
+            if(toolName === 'MyLibrary') { loadLibrary(); populateTagFilter(); }
+            if(toolName === 'Bookmarks') { loadBookmarks(); /* populateBookmarkFolderSelectors is called within loadBookmarks */ }
+            if(historyContainer) historyContainer.style.display = 'none';
+            if(toggleCrawlBtn) toggleCrawlBtn.style.display = 'none';
+            if(libArticleView && toolName === 'MyLibrary' && libArticleView.dataset.hasContent !== 'true') { 
+                 libArticleView.style.display = 'none';
+            }
+        } else if (toolName === 'ArticleExtractor') {
+            if(historyContainer) updateHistoryButtons(); 
+        }
+        
         const articleSettingsPanel = document.getElementById('article-settings-panel');
-        if (articleSettingsPanel) {
-            articleSettingsPanel.style.display = (toolName === 'ArticleExtractor' && document.getElementById('ae_result').innerHTML.trim() !== '') ? 'flex' : 'none';
+        const resultBox = document.getElementById('ae_result');
+        if (articleSettingsPanel && resultBox) {
+            articleSettingsPanel.style.display = (toolName === 'ArticleExtractor' && resultBox.innerHTML.trim() !== '') ? 'flex' : 'none';
         }
     }
     
     async function fetchWithProxy(url) {
         const proxyUrl = `${MY_PRIVATE_PROXY}/?url=${encodeURIComponent(url)}`;
         try {
-            const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(25000) });
+            const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(20000) }); // 20s timeout
             if (!response.ok) throw new Error(`प्रॉक्सी सर्वर से जवाब नहीं मिला (स्टेटस: ${response.status})`);
             return await response.text();
         } catch (error) {
-            if (error.name === 'AbortError') { // AbortSignal.timeout() throws AbortError
+            if (error.name === 'AbortError' || error.name === 'TimeoutError') { // DOMException for timeout
                 throw new Error('अनुरोध में बहुत अधिक समय लगा (टाइमआउट)।');
             }
             throw error;
@@ -202,9 +619,11 @@
         const storyDiv = document.createElement('div');
         storyDiv.className = 'single-story';
         storyDiv.id = `story-${storyId}`;
+        storyDiv.dataset.textContentForSearch = (article.textContent || "").toLowerCase();
         
         const headerDiv = document.createElement('div'); headerDiv.className = 'story-header';
-        const titleH3 = document.createElement('h3'); titleH3.textContent = article.title;
+        const titleH3 = document.createElement('h3'); 
+        titleH3.textContent = article.title || "शीर्षक उपलब्ध नहीं";
         const headerButtons = document.createElement('div'); headerButtons.className = 'header-buttons';
 
         if (speechApiSupported) {
@@ -213,23 +632,29 @@
             listenBtn.title = 'आर्टिकल सुनें';
             listenBtn.setAttribute('data-playing', 'false');
             listenBtn.onclick = () => {
-                if (!utterance) {
-                    showToast("बोलने की सुविधा अभी तैयार नहीं है।", "error");
+                if (!utterance || !article.textContent) {
+                    showToast("बोलने की सुविधा के लिए टेक्स्ट उपलब्ध नहीं है।", "error");
                     return;
                 }
                 const isPlaying = listenBtn.getAttribute('data-playing') === 'true';
+                document.querySelectorAll('.single-story .header-buttons button[data-playing="true"]').forEach(btn => {
+                    if (btn !== listenBtn) { // Stop other playing articles
+                         btn.textContent = '▶️ सुनें';
+                         btn.setAttribute('data-playing', 'false');
+                    }
+                });
+
                 if (speechSynth.speaking && isPlaying) {
                     speechSynth.pause();
                     listenBtn.textContent = '▶️ सुनें';
                     listenBtn.setAttribute('data-playing', 'false');
-                } else if (speechSynth.paused && !isPlaying) {
+                } else if (speechSynth.paused && !isPlaying && utterance.text.startsWith(article.title || "")) { // Resume only if it's the same article
                     speechSynth.resume();
                     listenBtn.textContent = '⏸️ पॉज़ करें';
                     listenBtn.setAttribute('data-playing', 'true');
                 } else {
-                    speechSynth.cancel();
-                    utterance.text = article.title + ". " + article.textContent;
-                    // lang और voice पहले से सेट होने चाहिए
+                    speechSynth.cancel(); // Stop any previous speech
+                    utterance.text = (article.title || "") + ". " + article.textContent;
                     speechSynth.speak(utterance);
                     listenBtn.textContent = '⏸️ पॉज़ करें';
                     listenBtn.setAttribute('data-playing', 'true');
@@ -257,7 +682,12 @@
         const downloadMp3Btn = document.createElement('button');
         downloadMp3Btn.innerHTML = '🗣️ MP3';
         downloadMp3Btn.title = 'MP3 ऑडियो डाउनलोड करें';
-        downloadMp3Btn.onclick = (e) => downloadTextAsMp3(article.textContent, article.title, e.currentTarget);
+        downloadMp3Btn.onclick = (e) => {
+            if (!article.textContent) {
+                showToast("MP3 बनाने के लिए टेक्स्ट उपलब्ध नहीं है।", "error"); return;
+            }
+            downloadTextAsMp3(article.textContent, article.title || "audio", e.currentTarget);
+        };
         headerButtons.appendChild(downloadMp3Btn);
         
         const saveBtn = document.createElement('button');
@@ -271,56 +701,207 @@
         const copyBtn = document.createElement('button');
         copyBtn.innerHTML = '📋 कॉपी';
         copyBtn.title = 'आर्टिकल का टेक्स्ट कॉपी करें';
-        copyBtn.onclick = async () => {
-            try {
-                const textToCopy = `${article.title}\n\n${article.textContent}`;
+        copyBtn.onclick = async (event) => { 
+            if (!article.textContent) {
+                showToast("कॉपी करने के लिए टेक्स्ट उपलब्ध नहीं है।", "error"); return;
+            }
+             try {
+                document.body.focus(); 
+                await new Promise(resolve => setTimeout(resolve, 100));
+                const textToCopy = `${article.title || ""}\n\n${article.textContent}`;
                 await navigator.clipboard.writeText(textToCopy);
                 showToast('आर्टिकल टेक्स्ट क्लिपबोर्ड पर कॉपी हो गया!', 'success');
-                copyBtn.innerHTML = '✅ कॉपी हुआ';
-                setTimeout(() => { copyBtn.innerHTML = '📋 कॉपी'; }, 2000);
+                event.currentTarget.innerHTML = '✅ कॉपी हुआ';
+                setTimeout(() => { event.currentTarget.innerHTML = '📋 कॉपी'; }, 2000);
             } catch (err) {
-                console.error('टेक्स्ट कॉपी करने में विफल:', err);
-                showToast('टेक्स्ट कॉपी करने में विफल।', 'error');
+                console.error('आर्टिकल टेक्स्ट कॉपी करने में विफल (navigator):', err);
+                const textToCopyFallback = `${article.title || ""}\n\n${article.textContent}`;
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopyFallback;
+                textArea.style.position = "fixed"; textArea.style.top = "-9999px"; textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                let successFallback = false;
+                try {
+                    textArea.focus(); textArea.select(); textArea.setSelectionRange(0, 99999); 
+                    successFallback = document.execCommand('copy');
+                } catch (errFallback) { console.error('Fallback copy execCommand failed:', errFallback); }
+                document.body.removeChild(textArea);
+
+                if (successFallback) {
+                    showToast('आर्टिकल टेक्स्ट (फॉलबैक) कॉपी हो गया!', 'success');
+                    event.currentTarget.innerHTML = '✅ कॉपी हुआ';
+                    setTimeout(() => { event.currentTarget.innerHTML = '📋 कॉपी'; }, 2000);
+                } else {
+                    showToast(`टेक्स्ट कॉपी करने में विफल: ${err.name} - ${err.message}`, 'error', 7000);
+                }
             }
         };
         headerButtons.appendChild(copyBtn);
         
-        const shareWhatsapp = document.createElement('button');
-        shareWhatsapp.innerHTML = 'WhatsApp';
-        shareWhatsapp.title = 'WhatsApp पर शेयर करें';
-        shareWhatsapp.onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(article.title + '\n' + sourceUrl)}`, '_blank');
-        headerButtons.appendChild(shareWhatsapp);
+        const shareUrlBtn = document.createElement('button');
+        shareUrlBtn.innerHTML = '🔗 URL शेयर'; 
+        shareUrlBtn.title = 'शीर्षक और URL शेयर करें';
+        shareUrlBtn.onclick = () => {
+             const shareData = {
+                title: article.title || "एक उपयोगी आर्टिकल",
+                text: `यह आर्टिकल देखें: ${article.title || ""}`,
+                url: sourceUrl,
+            };
+            if (navigator.share) {
+                navigator.share(shareData).catch(err => {
+                    if (err.name !== 'AbortError') console.error("URL शेयर करने में त्रुटि:", err);
+                });
+            } else { 
+                displayFallbackShareOptions(shareData);
+            }
+        };
+        headerButtons.appendChild(shareUrlBtn);
+
+        const shareFullTextBtn = document.createElement('button');
+        shareFullTextBtn.innerHTML = '📜 टेक्स्ट शेयर';
+        shareFullTextBtn.title = 'पूरा आर्टिकल टेक्स्ट शेयर करें';
+        shareFullTextBtn.style.backgroundColor = 'var(--success-color)'; 
+        shareFullTextBtn.onclick = async () => {
+            if (!article.title || !article.textContent || !sourceUrl) {
+                showToast("शेयर करने के लिए पर्याप्त जानकारी नहीं है।", "error");
+                return;
+            }
+            let shareText = `शीर्षक: ${article.title}\n`;
+            shareText += `मूल URL: ${sourceUrl}\n\n`;
+            shareText += `कंटेंट:\n${article.textContent}`;
+            const MAX_SHARE_TEXT_LENGTH = 2000; 
+            if (shareText.length > MAX_SHARE_TEXT_LENGTH) {
+                shareText = shareText.substring(0, MAX_SHARE_TEXT_LENGTH) + "\n\n... (और भी कंटेंट)";
+                showToast("पूरा टेक्स्ट शेयर करने के लिए बहुत लंबा है, इसे छोटा किया गया है।", "warning", 4000);
+            }
+            const shareData = { title: article.title, text: shareText, url: sourceUrl, };
+            if (navigator.share) {
+                try { await navigator.share(shareData); showToast('आर्टिकल सफलतापूर्वक शेयर किया गया!', 'success'); } 
+                catch (err) { console.error('पूरा टेक्स्ट शेयर करने में त्रुटि:', err); if (err.name !== 'AbortError') { showToast(`शेयर करने में विफल: ${err.message}`, 'error');}}
+            } else { displayFallbackShareOptions(shareData); }
+        };
+        headerButtons.appendChild(shareFullTextBtn);
 
         headerDiv.append(titleH3, headerButtons);
         
-        const wordCount = article.textContent.split(/\s+/).filter(Boolean).length;
+        const wordCount = article.textContent ? article.textContent.split(/\s+/).filter(Boolean).length : 0;
         const readingTime = Math.ceil(wordCount / 200);
         const authorP = document.createElement('p');
         authorP.innerHTML = `<em style="font-size: 0.9em;">लेखक: ${article.byline || 'उपलब्ध नहीं'} | पढ़ने का समय: ~${readingTime} मिनट</em>`;
         
         const contentDiv = document.createElement('div');
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = article.content;
-        const images = tempDiv.querySelectorAll('img');
-        images.forEach(img => {
-            const originalSrc = img.getAttribute('src') || img.dataset.src; // data-src भी चेक करें
-            if (originalSrc) {
-                try {
-                    const absoluteSrc = new URL(originalSrc, sourceUrl).href;
-                    img.setAttribute('src', absoluteSrc);
-                } catch (e) {
-                    console.warn("अमान्य इमेज URL:", originalSrc, "पेज पर:", sourceUrl);
-                }
+        contentDiv.className = 'article-body-content'; 
+
+        if (article.content) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = (typeof article.content === 'string') ? article.content : "<p><em>कंटेंट उपलब्ध नहीं है।</em></p>";
+            
+            if (currentDisplayMode === 'image-text') {
+                const images = tempDiv.querySelectorAll('img');
+                images.forEach(img => {
+                    const originalSrc = img.getAttribute('src') || img.dataset.src;
+                    if (originalSrc) {
+                        try {
+                            const absoluteSrc = new URL(originalSrc, sourceUrl).href;
+                            img.setAttribute('src', absoluteSrc);
+                        } catch (e) {
+                            console.warn("अमान्य इमेज URL:", originalSrc, "पेज पर:", sourceUrl);
+                        }
+                    }
+                    img.removeAttribute('loading'); // Use explicit lazy loading or none
+                    img.loading = 'lazy'; // Add explicit lazy loading
+                });
+            } else { 
+                tempDiv.querySelectorAll('img, figure, picture').forEach(el => el.remove());
             }
-            img.removeAttribute('loading'); // लेज़ी लोडिंग हटाएँ
-        });
-        contentDiv.innerHTML = tempDiv.innerHTML;
+
+            const linksInArticle = tempDiv.querySelectorAll('a[href]'); 
+            linksInArticle.forEach(linkElement => { 
+                const originalHref = linkElement.getAttribute('href');
+                if (originalHref && originalHref.trim() !== '' && !originalHref.startsWith('#')) {
+                    let absoluteUrl;
+                    try {
+                        absoluteUrl = new URL(originalHref, sourceUrl).href;
+                    } catch (e) {
+                        console.warn("अमान्य href, नए टैब में खुलेगा:", originalHref, e);
+                        linkElement.target = '_blank';
+                        linkElement.rel = 'noopener noreferrer';
+                        return; 
+                    }
+                        
+                    if (absoluteUrl.startsWith('http:') || absoluteUrl.startsWith('https:')) {
+                        linkElement.style.color = 'var(--primary-color)'; 
+                        linkElement.style.textDecoration = 'underline';
+                        linkElement.style.cursor = 'pointer'; 
+                        linkElement.title = `रीडर में खोलें: ${absoluteUrl.substring(0,70)}...`;
+                        linkElement.setAttribute('data-reader-target-url', absoluteUrl);
+                        linkElement.setAttribute('href', 'javascript:void(0);'); 
+                        linkElement.removeAttribute('target');
+                    } else {
+                        linkElement.href = absoluteUrl; 
+                        linkElement.target = '_blank';   
+                        linkElement.rel = 'noopener noreferrer'; 
+                    }
+                } else if (originalHref && originalHref.startsWith('#')) {
+                    linkElement.href = originalHref;
+                }
+            });
+            contentDiv.innerHTML = tempDiv.innerHTML; 
+        } else {
+            contentDiv.innerHTML = "<p><em>इस आर्टिकल का कंटेंट लोड नहीं हो सका।</em></p>";
+        }
         
         storyDiv.append(headerDiv, authorP, document.createElement('hr'), contentDiv);
         return storyDiv;
     }
 
-    async function downloadTextAsMp3(text, filename, btn) {
+    document.addEventListener('click', function(event) { 
+        let targetElement = event.target;
+        while (targetElement && targetElement !== document.body && targetElement.tagName !== 'A') {
+            targetElement = targetElement.parentNode;
+        }
+
+        if (targetElement && targetElement.tagName === 'A' && targetElement.hasAttribute('data-reader-target-url')) {
+            const resultBox = document.getElementById('ae_result');
+            if (!resultBox || !resultBox.contains(targetElement)) {
+                return; 
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const urlToLoadInReader = targetElement.getAttribute('data-reader-target-url');
+            
+            if (!urlToLoadInReader) {
+                console.error("रीडर में लोड करने के लिए URL नहीं मिला।");
+                return;
+            }
+            
+            showToast(`आंतरिक लिंक लोड हो रहा है: ${urlToLoadInReader.substring(0,50)}...`, 'info');
+            
+            const resultDivEl = document.getElementById('ae_result');
+            if(resultDivEl) resultDivEl.innerHTML = ''; 
+            
+            const articleUrlInput = document.getElementById('articleUrl');
+            if (articleUrlInput) articleUrlInput.value = urlToLoadInReader; 
+            
+            const crawlCheckbox = document.getElementById('crawlSiteToggle');
+            if(crawlCheckbox) crawlCheckbox.checked = false; 
+            
+            if (!isNavigatingHistory) {
+                addToHistory(urlToLoadInReader);
+            }
+
+            ae_startExtraction(true).then(() => {}).catch(err => {
+                console.error("आंतरिक लिंक एक्सट्रैक्शन में त्रुटि:", err);
+                showToast("आंतरिक लिंक लोड करने में त्रुटि हुई।", "error");
+            }); 
+            window.scrollTo(0,0); 
+        }
+    });
+
+
+    async function downloadTextAsMp3(text, filename, btn) { 
         const originalText = btn.innerHTML;
         btn.innerHTML = 'प्रोसेसिंग...'; btn.disabled = true;
         showToast('MP3 निर्माण शुरू हो रहा है...', 'info');
@@ -333,6 +914,1632 @@
         }
 
         const chunks = cleanedText.match(/.{1,150}/g) || [];
+        if (chunks.length === 0 && cleanedText.length > 0) { chunks.push(cleanedText); }
+        if (chunks.length === 0) {
+            showToast('MP3 बनाने के लिए कोई टेक्स्ट चंक नहीं मिला।', 'error');
+            btn.innerHTML = originalText; btn.disabled = false; return;
+        }
+        
         const audioBlobs = [];
         try {
-            if (chunks.length === 0 && cleanedText.length > 0) { // यदि टेक्स्ट छोटा है, लेकिन
+            for (let i = 0; i < chunks.length; i++) {
+                const chunkText = chunks[i];
+                btn.innerHTML = `भाग ${i+1}/${chunks.length}...`;
+                const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunkText)}&tl=hi&client=tw-ob&prev=input`;
+                const audioResponse = await fetch(`${MY_PRIVATE_PROXY}/?url=${encodeURIComponent(ttsUrl)}`, { signal: AbortSignal.timeout(20000) });
+                if (!audioResponse.ok) throw new Error(`TTS API से ऑडियो नहीं मिला (स्टेटस: ${audioResponse.status}) चंक ${i+1} के लिए।`);
+                const blob = await audioResponse.blob();
+                if (blob.size === 0 || !blob.type.startsWith('audio/')) {
+                    let errorDetail = 'अज्ञात ऑडियो त्रुटि';
+                    if (blob.type.startsWith('text/')) {
+                        const errorText = await blob.text();
+                        console.error("TTS API returned non-audio content:", errorText.substring(0, 500));
+                        errorDetail = 'TTS ने मान्य ऑडियो के बजाय टेक्स्ट लौटाया।';
+                    }
+                    throw new Error(`TTS API से अमान्य ऑडियो डेटा मिला (चंक ${i+1})। ${errorDetail}`);
+                }
+                audioBlobs.push(blob);
+            }
+
+            if (audioBlobs.length === 0) throw new Error('कोई ऑडियो डेटा सफलतापूर्वक प्राप्त नहीं हुआ।');
+            const combinedBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
+            if (combinedBlob.size === 0) throw new Error('संयुक्त ऑडियो ब्लॉब खाली है।');
+
+            const downloadUrl = URL.createObjectURL(combinedBlob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            const safeFilename = (filename || "audio").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0900-\u097F\s._-]/gi, '_').replace(/\s+/g, '_');
+            a.download = `${safeFilename}.mp3`;
+            document.body.appendChild(a); a.click(); a.remove(); 
+            URL.revokeObjectURL(downloadUrl);
+            showToast("MP3 सफलतापूर्वक बन गया और डाउनलोड शुरू हो गया!", "success");
+        } catch (error) {
+            console.error('MP3 बनाने में विस्तृत त्रुटि:', error);
+            showToast(`MP3 बनाने में त्रुटि: ${error.message}`, 'error', 7000);
+        } finally {
+            btn.innerHTML = originalText; btn.disabled = false;
+        }
+    }
+
+    async function loadNextArticleIfIdle() {
+        if (!isLoadingNext && currentLinkIndex < allStoryLinks.length) {
+            await loadNextArticle();
+        }
+    }
+
+    async function loadNextArticle() {
+        const loadingDiv = document.getElementById('ae_loading');
+        const resultDiv = document.getElementById('ae_result');
+
+        if (isLoadingNext || currentLinkIndex >= allStoryLinks.length) {
+            if (loadingDiv) {
+                if (allStoryLinks.length > 0 && currentLinkIndex >= allStoryLinks.length) {
+                     loadingDiv.innerText = "सभी ज्ञात आर्टिकल लोड हो गए।";
+                     setTimeout(() => { if(loadingDiv) loadingDiv.style.display = 'none'; }, 2000);
+                } else if (allStoryLinks.length === 0 && resultDiv && resultDiv.innerHTML.trim() === '') { 
+                    loadingDiv.style.display = 'none';
+                }
+            }
+            return;
+        }
+        isLoadingNext = true;
+
+        if (loadingDiv) {
+            loadingDiv.style.display = 'block';
+            const currentLoadingUrl = allStoryLinks[currentLinkIndex] || "";
+            loadingDiv.innerText = `आर्टिकल (${currentLinkIndex + 1}/${allStoryLinks.length}) लोड हो रहा है: ${currentLoadingUrl.substring(0,50)}...`;
+        }
+        try {
+            const link = allStoryLinks[currentLinkIndex];
+            if (!link) { 
+                console.warn("लोड करने के लिए कोई मान्य लिंक नहीं है इंडेक्स पर:", currentLinkIndex);
+                currentLinkIndex++; 
+                isLoadingNext = false;
+                await loadNextArticleIfIdle(); 
+                return;
+            }
+
+            const html = await fetchWithProxy(link);
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            doc.head.insertAdjacentHTML('beforeend', `<base href="${link}">`);
+            const article = new Readability(doc).parse();
+
+            if (article && article.content) {
+                if(resultDiv) resultDiv.appendChild(createStoryElement(article, link));
+                const articleSettingsPanel = document.getElementById('article-settings-panel');
+                if (articleSettingsPanel) articleSettingsPanel.style.display = 'flex';
+                if (allStoryLinks.length === 1 || currentLinkIndex === 0) { 
+                    const offlineArticleData = {
+                        title: article.title, content: article.content, textContent: article.textContent,
+                        byline: article.byline, url: link, savedAt: new Date().toISOString()
+                    };
+                    localStorage.setItem(STORAGE_KEY_OFFLINE_ARTICLE, JSON.stringify(offlineArticleData));
+                    console.log("ऑफ़लाइन के लिए आर्टिकल सहेजा गया:", article.title);
+                }
+            } else {
+                showToast(`आर्टिकल "${link}" से कंटेंट नहीं निकाल सका।`, 'warning');
+                console.warn(`आर्टिकल "${link}" से कंटेंट नहीं निकाल सका।`, article);
+            }
+            currentLinkIndex++;
+        } catch (e) {
+            const failedLink = allStoryLinks[currentLinkIndex] || "अज्ञात लिंक";
+            console.error(`आर्टिकल "${failedLink}" लोड करने में विफल:`, e);
+            showToast(`आर्टिकल "${failedLink}" लोड करने में विफल: ${e.message}`, 'error');
+            currentLinkIndex++; 
+        } finally {
+            isLoadingNext = false; 
+            await loadNextArticleIfIdle(); 
+            
+            if (currentLinkIndex >= allStoryLinks.length && allStoryLinks.length > 0 && loadingDiv && loadingDiv.style.display !== 'none') {
+                const toggleCrawlBtn = document.getElementById('toggleCrawlBtn');
+                if (!toggleCrawlBtn || toggleCrawlBtn.style.display === 'none' || isCrawlingPaused) { 
+                    loadingDiv.innerText = "सभी ज्ञात आर्टिकल लोड हो गए।";
+                    setTimeout(() => { if(loadingDiv) loadingDiv.style.display = 'none'; }, 2000);
+                }
+            }
+        }
+    }
+    
+    function toggleDepthSelector() { 
+        const crawlCheckbox = document.getElementById('crawlSiteToggle');
+        const depthContainer = document.getElementById('depthSelectorContainer');
+        if (crawlCheckbox && depthContainer) {
+            depthContainer.style.display = crawlCheckbox.checked ? 'inline-block' : 'none';
+        }
+    }
+    
+    function toggleCrawling() {
+        const toggleBtn = document.getElementById('toggleCrawlBtn');
+        if (!toggleBtn) return;
+
+        if (isCrawlingPaused) {
+            isCrawlingPaused = false;
+            toggleBtn.innerHTML = '⏹️ क्रॉलिंग रोकें';
+            showToast("क्रॉलिंग रिज्यूम की गई।", "info");
+        } else {
+            isCrawlingPaused = true;
+            toggleBtn.innerHTML = '▶️ क्रॉलिंग रिज्यूम करें';
+            showToast("क्रॉलिंग रोकी गई।", "warning");
+        }
+    }
+
+    async function ae_startExtraction(isNavigationAction = false) { 
+        const urlInput = document.getElementById('articleUrl').value.trim();
+        const loadingDiv = document.getElementById('ae_loading');
+        const resultDiv = document.getElementById('ae_result');
+        const crawlSiteCheckbox = document.getElementById('crawlSiteToggle');
+        const crawlDepthSelector = document.getElementById('crawlDepth');
+        const toggleCrawlBtn = document.getElementById('toggleCrawlBtn');
+        
+        if (!urlInput) { showToast('कृपया एक URL डालें।', 'error'); return; }
+        let initialUrlObj;
+        try { 
+            initialUrlObj = new URL(urlInput); 
+        } catch (_) { 
+            showToast('अमान्य URL डाला गया है।', 'error'); return; 
+        }
+
+        if (!isNavigatingHistory && !isNavigationAction) {
+             addToHistory(initialUrlObj.href);
+        }
+
+        if (loadingDiv) loadingDiv.style.display = 'block'; 
+        if (resultDiv) resultDiv.innerHTML = '';
+        allStoryLinks = []; 
+        currentLinkIndex = 0;
+        isLoadingNext = false;
+        isCrawlingPaused = false; 
+        if (toggleCrawlBtn) {
+            toggleCrawlBtn.style.display = 'none'; 
+            toggleCrawlBtn.innerHTML = '⏹️ क्रॉलिंग रोकें';
+        }
+
+        if (speechApiSupported && speechSynth.speaking) speechSynth.cancel();
+        const articleSettingsPanel = document.getElementById('article-settings-panel');
+        if (articleSettingsPanel) articleSettingsPanel.style.display = 'none';
+
+        const shouldCrawl = isNavigationAction ? false : crawlSiteCheckbox.checked;
+        const selectedCrawlDepth = shouldCrawl ? parseInt(crawlDepthSelector.value, 10) : 0;
+        
+        try {
+            if (loadingDiv) loadingDiv.innerText = "पेज का विश्लेषण किया जा रहा है...";
+            const initialHtml = await fetchWithProxy(initialUrlObj.href); 
+            const initialDoc = new DOMParser().parseFromString(initialHtml, "text/html");
+            initialDoc.head.insertAdjacentHTML('beforeend', `<base href="${initialUrlObj.href}">`); 
+            
+            const mainArticleFromInitialUrl = new Readability(initialDoc.cloneNode(true)).parse();
+
+            let initialUrlIsArticle = false;
+            if (mainArticleFromInitialUrl && mainArticleFromInitialUrl.content && mainArticleFromInitialUrl.textContent && mainArticleFromInitialUrl.textContent.length > 150) {
+                initialUrlIsArticle = true;
+                if (allStoryLinks.length < MAX_TOTAL_ARTICLES_TO_QUEUE && !allStoryLinks.includes(initialUrlObj.href)) {
+                    allStoryLinks.push(initialUrlObj.href);
+                }
+            }
+            
+            if (shouldCrawl && (!initialUrlIsArticle || selectedCrawlDepth > 0 || (allStoryLinks.length === 0 && !initialUrlIsArticle))) { 
+                if (loadingDiv) loadingDiv.innerText = "वेबसाइट से अन्य आर्टिकल खोजे जा रहे हैं (गहराई: " + selectedCrawlDepth +")...";
+                if (toggleCrawlBtn) toggleCrawlBtn.style.display = 'inline-block';
+                
+                const queue = [{ url: initialUrlObj.href, depth: 0 }];
+                const visitedForCrawling = new Set(); 
+                
+                let consecutiveFetchFailures = 0;
+                
+                while (queue.length > 0 && allStoryLinks.length < MAX_TOTAL_ARTICLES_TO_QUEUE && consecutiveFetchFailures < MAX_FETCH_FAILURES_IN_ROW) {
+                    if (isCrawlingPaused) {
+                        if (loadingDiv) loadingDiv.innerText = `क्रॉलिंग रोकी गई... (${allStoryLinks.length} आर्टिकल मिले)`;
+                        await new Promise(resolve => {
+                            const checkResume = setInterval(() => {
+                                if (!isCrawlingPaused) {
+                                    clearInterval(checkResume);
+                                    resolve();
+                                }
+                            }, 500); 
+                        });
+                        if (loadingDiv) loadingDiv.innerText = `क्रॉलिंग रिज्यूम की गई... (${allStoryLinks.length} आर्टिकल मिले)`;
+                    }
+
+                    const currentItem = queue.shift();
+                    const currentUrl = currentItem.url;
+                    const currentDepth = currentItem.depth;
+
+                    if (visitedForCrawling.has(currentUrl)) { 
+                        continue;
+                    }
+                    visitedForCrawling.add(currentUrl);
+
+                    if (loadingDiv) loadingDiv.innerText = `लिंक खोज रहा है (${visitedForCrawling.size} पेज देखे, ${allStoryLinks.length} आर्टिकल मिले): ${currentUrl.substring(0,40)}...`;
+                    
+                    let pageHtml;
+                    if (currentUrl === initialUrlObj.href && currentDepth === 0 && initialHtml) { 
+                        pageHtml = initialHtml;
+                    } else {
+                        try {
+                            pageHtml = await fetchWithProxy(currentUrl);
+                            consecutiveFetchFailures = 0; 
+                        } catch (fetchError) { 
+                            console.warn(`URL ${currentUrl} को फ़ेच करने में विफल (क्रॉलिंग): ${fetchError.message}`);
+                            consecutiveFetchFailures++;
+                            if (consecutiveFetchFailures >= MAX_FETCH_FAILURES_IN_ROW) {
+                                showToast("कई पेजों को फ़ेच करने में विफल, क्रॉलिंग रोकी जा रही है।", "error");
+                                break;
+                            }
+                            continue;
+                        }
+                    }
+
+                    const pageDoc = new DOMParser().parseFromString(pageHtml, "text/html");
+                    pageDoc.head.insertAdjacentHTML('beforeend', `<base href="${currentUrl}">`);
+
+                    if (!allStoryLinks.includes(currentUrl)) { 
+                        const parsedArticle = new Readability(pageDoc.cloneNode(true)).parse();
+                        if (parsedArticle && parsedArticle.content && parsedArticle.textContent && parsedArticle.textContent.length > 150) {
+                            if (allStoryLinks.length < MAX_TOTAL_ARTICLES_TO_QUEUE) {
+                                allStoryLinks.push(currentUrl); 
+                            }
+                        }
+                    }
+
+                    if (currentDepth < selectedCrawlDepth && allStoryLinks.length < MAX_TOTAL_ARTICLES_TO_QUEUE) {
+                        const linksOnPage = new Set();
+                        pageDoc.querySelectorAll('a[href]').forEach(a => {
+                            try {
+                                const absUrl = new URL(a.href, currentUrl).href.split('#')[0];
+                                const siteOrigin = initialUrlObj.origin;
+
+                                if (absUrl.startsWith(siteOrigin) && 
+                                    !visitedForCrawling.has(absUrl) && 
+                                    !queue.some(qItem => qItem.url === absUrl) && 
+                                    !allStoryLinks.includes(absUrl) && 
+                                    !absUrl.match(/\.(jpeg|jpg|gif|png|pdf|zip|css|js|xml|mp3|mp4|webp|svg|woff|ttf|ico|json|txt|php|asp|cgi)$/i)) {
+                                    linksOnPage.add(absUrl);
+                                }
+                            } catch (e) { /* ignore invalid URLs */ }
+                        });
+
+                        for (const link of linksOnPage) {
+                            if (queue.length + allStoryLinks.length < MAX_TOTAL_ARTICLES_TO_QUEUE + 30) { 
+                                if(!visitedForCrawling.has(link) && !queue.some(qItem => qItem.url === link)){ 
+                                     queue.push({ url: link, depth: currentDepth + 1 });
+                                }
+                            } else {
+                                break; 
+                            }
+                        }
+                    }
+                } 
+                if (toggleCrawlBtn) toggleCrawlBtn.style.display = 'none'; 
+            } else if (!initialUrlIsArticle && !isNavigationAction && !shouldCrawl) { 
+                showToast("यह URL एक सिंगल आर्टिकल प्रतीत नहीं होता। अन्य आर्टिकल खोजने के लिए चेकबॉक्स को चुनें।", "warning", 6000);
+                if (loadingDiv) loadingDiv.style.display = 'none';
+                return;
+            }
+            
+            if (allStoryLinks.length > 0) {
+                let toastMsg = `${allStoryLinks.length} संभावित आर्टिकल मिले।`;
+                if(isNavigationAction) toastMsg = "आर्टिकल लोड हो रहा है...";
+                else if (allStoryLinks.length === 1 && !shouldCrawl) toastMsg = "सिंगल आर्टिकल मिला।";
+                else if (allStoryLinks.length === 1 && shouldCrawl) toastMsg = "1 आर्टिकल मिला (क्रॉलिंग के बाद)।";
+                showToast(toastMsg, "info", 2000); 
+                
+                currentLinkIndex = 0; 
+                isLoadingNext = false; 
+                await loadNextArticleIfIdle(); 
+                
+                if (currentLinkIndex < allStoryLinks.length) { 
+                     await loadNextArticleIfIdle();
+                }
+            } else {
+                if (resultDiv) resultDiv.innerHTML = `<p class="error-message">इस URL या सेटिंग से कोई आर्टिकल नहीं मिला।</p>`;
+                if (loadingDiv) loadingDiv.style.display = 'none';
+            }
+            
+            if (loadingDiv && currentLinkIndex >= allStoryLinks.length && allStoryLinks.length === 0) {
+                loadingDiv.style.display = 'none'; 
+            }
+
+        } catch (error) { 
+            console.error("Extraction error:", error);
+            if (resultDiv) resultDiv.innerHTML = `<p class="error-message">आर्टिकल निकालने में त्रुटि: ${error.message}</p>`;
+            showToast(`त्रुटि: ${error.message}`, 'error', 7000);
+            if (loadingDiv) loadingDiv.style.display = 'none';
+            if (toggleCrawlBtn) toggleCrawlBtn.style.display = 'none';
+        }
+    }
+    
+    function clearResults() { 
+        const resultDiv = document.getElementById('ae_result');
+        const urlInput = document.getElementById('articleUrl');
+        const articleSettingsPanel = document.getElementById('article-settings-panel');
+        const toggleCrawlBtn = document.getElementById('toggleCrawlBtn');
+
+
+        if (resultDiv) resultDiv.innerHTML = '';
+        if (urlInput) urlInput.value = '';
+        allStoryLinks = []; currentLinkIndex = 0;
+        isLoadingNext = false;
+        isCrawlingPaused = false;
+        if (toggleCrawlBtn) {
+            toggleCrawlBtn.style.display = 'none';
+            toggleCrawlBtn.innerHTML = '⏹️ क्रॉलिंग रोकें';
+        }
+
+
+        if (speechApiSupported && speechSynth.speaking) speechSynth.cancel();
+        if (articleSettingsPanel) articleSettingsPanel.style.display = 'none';
+        
+        navigationHistory = [];
+        currentHistoryIndex = -1;
+        updateHistoryButtons();
+        const historyContainer = document.getElementById('internalNavHistoryContainer');
+        if(historyContainer) historyContainer.style.display = 'none';
+
+        showToast("परिणाम साफ़ कर दिए गए हैं।");
+    }
+
+    function clearUrlInput() {
+        const articleUrlInput = document.getElementById('articleUrl');
+        if (articleUrlInput) {
+            articleUrlInput.value = '';
+            articleUrlInput.focus();
+        }
+    }
+
+    function filterExtractedArticles() {
+        const searchTerm = document.getElementById('extractorSearch').value.toLowerCase();
+        const resultBox = document.getElementById('ae_result');
+        if (!resultBox) return;
+
+        const articles = resultBox.querySelectorAll('.single-story');
+        
+        articles.forEach(articleDiv => {
+            const searchableText = (articleDiv.dataset.textContentForSearch || "").toLowerCase();
+            const titleText = (articleDiv.querySelector('h3')?.textContent || "").toLowerCase();
+            const combinedText = searchableText + titleText;
+
+
+            if (combinedText.includes(searchTerm)) {
+                articleDiv.style.display = 'block';
+            } else {
+                articleDiv.style.display = 'none';
+            }
+        });
+    }
+
+    function clearExtractorSearch() {
+        const searchInput = document.getElementById('extractorSearch');
+        if (searchInput) {
+            searchInput.value = '';
+            filterExtractedArticles(); 
+        }
+    }
+
+
+    // --- Library Functions --- 
+    function getLibrary() { return JSON.parse(localStorage.getItem(STORAGE_KEY_LIBRARY) || '{}'); } 
+    function saveLibrary(library) { 
+        localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(library)); 
+        updateLibraryCount(); 
+        populateTagFilter(); // टैग फ़िल्टर को अपडेट करें
+        if(document.getElementById('MyLibrary').style.display === 'block') { // यदि लाइब्रेरी टैब खुला है तो उसे रीलोड करें
+            loadLibrary();
+        }
+    }
+    function isSaved(url) { return !!getLibrary()[btoa(encodeURIComponent(url))]; }
+    
+    function toggleSaveArticle(article, url, btn) { 
+        const library = getLibrary(); 
+        const storyId = btoa(encodeURIComponent(url));
+        if (library[storyId]) {
+            delete library[storyId];
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    action: 'delete-article-from-cache',
+                    url: url
+                });
+            }
+            btn.innerHTML = '🤍 सेव करें';
+            btn.title = 'लाइब्रेरी में सेव करें';
+            btn.classList.remove('saved');
+            showToast("आर्टिकल लाइब्रेरी से हटा दिया गया।");
+        } else {
+            const articleToStore = { 
+                title: article.title || "शीर्षक नहीं", 
+                content: article.content || "", 
+                textContent: article.textContent || "", 
+                byline: article.byline || "", 
+                url: url,
+                savedAt: new Date().toISOString(),
+                tags: [] // नया आर्टिकल, कोई टैग नहीं
+            };
+            library[storyId] = articleToStore;
+            
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    action: 'cache-article',
+                    url: url,
+                    article: articleToStore
+                });
+            }
+            btn.innerHTML = '❤️ सेव है';
+            btn.title = 'लाइब्रेरी से हटाएं';
+            btn.classList.add('saved');
+            showToast("आर्टिकल लाइब्रेरी में सेव हो गया!", "success");
+        }
+        saveLibrary(library); // यह loadLibrary और populateTagFilter को भी कॉल करेगा यदि आवश्यक हो
+    }
+
+    function loadLibrary() { 
+        const library = getLibrary();
+        const listDiv = document.getElementById('library-list');
+        const searchTermInput = document.getElementById('librarySearch');
+        const sortSelect = document.getElementById('librarySort');
+        const tagFilterSelect = document.getElementById('libraryTagFilter');
+
+        if (!listDiv || !searchTermInput || !sortSelect) return;
+
+        const searchTerm = searchTermInput.value.toLowerCase();
+        const sortOrder = sortSelect.value;
+        const selectedTag = tagFilterSelect ? tagFilterSelect.value : "";
+
+
+        let itemsArray = Object.entries(library).map(([id, item]) => ({id, ...item}));
+
+        if (searchTerm) {
+            itemsArray = itemsArray.filter(item => item.title && item.title.toLowerCase().includes(searchTerm));
+        }
+        if (selectedTag) {
+            itemsArray = itemsArray.filter(item => item.tags && item.tags.includes(selectedTag));
+        }
+
+
+        itemsArray.sort((a, b) => {
+            switch (sortOrder) {
+                case 'date_asc': return new Date(a.savedAt) - new Date(b.savedAt);
+                case 'title_asc': return (a.title || "").localeCompare(b.title || "", 'hi');
+                case 'title_desc': return (b.title || "").localeCompare(a.title || "", 'hi');
+                case 'date_desc': default: return new Date(b.savedAt) - new Date(a.savedAt);
+            }
+        });
+        
+        listDiv.innerHTML = (itemsArray.length === 0) ? '<p>आपकी लाइब्रेरी खाली है या खोज/फ़िल्टर से कोई परिणाम नहीं मिला।</p>' : '';
+        
+        itemsArray.forEach(itemData => {
+            const itemDiv = document.createElement('div'); 
+            itemDiv.className = 'library-item';
+            itemDiv.id = `lib-item-${btoa(encodeURIComponent(itemData.url))}`; 
+
+            const titleSpan = document.createElement('span'); 
+            titleSpan.className = 'item-title'; 
+            titleSpan.textContent = itemData.title || "अनाम आर्टिकल";
+            titleSpan.onclick = () => showSavedArticle(itemData);
+            
+            const deleteBtn = document.createElement('button'); deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = 'हटाएँ';
+            deleteBtn.onclick = (e) => { 
+                e.stopPropagation(); 
+                const currentLib = getLibrary();
+                delete currentLib[itemData.id]; 
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        action: 'delete-article-from-cache',
+                        url: itemData.url
+                    });
+                }
+                saveLibrary(currentLib); 
+                // loadLibrary(); // saveLibrary इसे कॉल करेगा
+                const libArticleView = document.getElementById('library-article-view');
+                if (libArticleView && libArticleView.dataset.currentArticleUrl === itemData.url) {
+                    libArticleView.style.display = 'none'; 
+                    libArticleView.dataset.hasContent = 'false';
+                }
+                showToast("आर्टिकल हटा दिया गया।");
+            };
+            itemDiv.append(titleSpan, deleteBtn);
+            listDiv.appendChild(itemDiv);
+        });
+    }
+    function filterLibrary() { loadLibrary(); }
+
+    async function showSavedArticle(articleDataFromLocalStorage) { 
+        const libArticleView = document.getElementById('library-article-view');
+        const libTitle = document.getElementById('lib-article-title');
+        const libOriginalUrl = document.getElementById('lib-article-original-url');
+        const libTextContent = document.getElementById('lib-article-text-content');
+        const libShareBtn = document.getElementById('shareLibArticleBtn');
+
+        if (libArticleView && libTitle && libOriginalUrl && libTextContent && libShareBtn) {
+            libTitle.textContent = articleDataFromLocalStorage.title || "शीर्षक उपलब्ध नहीं";
+            libOriginalUrl.href = articleDataFromLocalStorage.url;
+            libOriginalUrl.textContent = articleDataFromLocalStorage.url.length > 60 ? articleDataFromLocalStorage.url.substring(0, 60) + "..." : articleDataFromLocalStorage.url;
+            
+            libTextContent.textContent = "कंटेंट लोड हो रहा है...";
+            let articleToShare = articleDataFromLocalStorage; // Default to localStorage data
+
+            try {
+                // सर्विस वर्कर fetch को इंटरसेप्ट करेगा
+                const response = await fetch(articleDataFromLocalStorage.url); 
+                if (!response.ok) {
+                    throw new Error(`नेटवर्क प्रतिक्रिया ठीक नहीं थी (स्टेटस: ${response.status}), localStorage फ़ॉलबैक का प्रयास करें। आर्टिकल URL: ${articleDataFromLocalStorage.url}`);
+                }
+                const fetchedArticleData = await response.json(); // SW JSON भेज रहा है
+                libTextContent.textContent = fetchedArticleData.textContent || "टेक्स्ट कंटेंट उपलब्ध नहीं है।";
+                articleToShare = fetchedArticleData; // शेयर करने के लिए नवीनतम डेटा का उपयोग करें
+                console.log("[App] Article loaded from SW/Cache:", fetchedArticleData.title);
+            } catch (error) {
+                console.warn('[App] कैश/नेटवर्क से आर्टिकल फ़ेच करने में विफल, localStorage डेटा का उपयोग किया जा रहा है:', error);
+                libTextContent.textContent = articleDataFromLocalStorage.textContent || "ऑफ़लाइन कंटेंट लोड करने में विफल।";
+                showToast("ऑफ़लाइन कंटेंट दिखाया जा रहा है (त्रुटि के कारण)।", "warning");
+            }
+            
+            libShareBtn.onclick = () => shareLibraryArticle(articleToShare);
+
+            applySavedLibraryFontSize(); 
+            displayArticleTags(articleDataFromLocalStorage.url, articleDataFromLocalStorage.tags || []);
+            
+            libArticleView.style.display = 'block';
+            libArticleView.dataset.hasContent = 'true';
+            libArticleView.dataset.currentArticleUrl = articleDataFromLocalStorage.url;
+
+            document.querySelectorAll('.library-item.selected').forEach(el => el.classList.remove('selected'));
+            const listItemId = `lib-item-${btoa(encodeURIComponent(articleDataFromLocalStorage.url))}`;
+            const selectedListItem = document.getElementById(listItemId);
+            if (selectedListItem) {
+                selectedListItem.classList.add('selected');
+            }
+
+        } else { 
+            console.error("लाइब्रेरी आर्टिकल व्यू के लिए आवश्यक तत्व नहीं मिले।");
+            showToast("लाइब्रेरी आर्टिकल दिखाने में त्रुटि।", "error");
+        }
+        const articleSettingsPanel = document.getElementById('article-settings-panel');
+        if (articleSettingsPanel) articleSettingsPanel.style.display = 'none';
+        updateHistoryButtons(); 
+    }
+    
+    // --- Library Tag Functions ---
+    function populateTagFilter() {
+        const library = getLibrary();
+        const allTags = new Set();
+        Object.values(library).forEach(item => {
+            if (item.tags) item.tags.forEach(tag => allTags.add(tag));
+        });
+
+        const filterSelect = document.getElementById('libraryTagFilter');
+        if (!filterSelect) return;
+        
+        const currentSelectedValue = filterSelect.value; 
+        filterSelect.innerHTML = '<option value="">सभी टैग</option>'; 
+
+        Array.from(allTags).sort().forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag;
+            option.textContent = tag;
+            filterSelect.appendChild(option);
+        });
+        if (Array.from(allTags).includes(currentSelectedValue)) {
+             filterSelect.value = currentSelectedValue; 
+        }
+    }
+
+    function displayArticleTags(articleUrl, tagsArray) {
+        const currentTagsDiv = document.getElementById('lib-article-current-tags');
+        if (!currentTagsDiv) return;
+        currentTagsDiv.innerHTML = '';
+        if (tagsArray && tagsArray.length > 0) {
+            tagsArray.forEach(tag => {
+                const tagSpan = document.createElement('span');
+                tagSpan.className = 'tag-item';
+                tagSpan.textContent = tag;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'tag-remove-btn';
+                removeBtn.textContent = '✗';
+                removeBtn.title = `टैग हटाएं: ${tag}`;
+                removeBtn.onclick = () => removeTagFromCurrentLibraryArticle(tag);
+
+                tagSpan.appendChild(removeBtn);
+                currentTagsDiv.appendChild(tagSpan);
+            });
+        } else {
+            currentTagsDiv.innerHTML = '<em>कोई टैग नहीं।</em>';
+        }
+    }
+
+    function addTagToCurrentLibraryArticle() {
+        const newTagInput = document.getElementById('lib-new-tag-input');
+        const libArticleView = document.getElementById('library-article-view');
+        if (!newTagInput || !libArticleView) return;
+        const currentArticleUrl = libArticleView.dataset.currentArticleUrl;
+        
+        if (!currentArticleUrl || !newTagInput.value.trim()) {
+            showToast("कृपया टैग का नाम डालें या एक आर्टिकल चुनें।", "warning");
+            return;
+        }
+
+        const tagName = newTagInput.value.trim().toLowerCase();
+        const library = getLibrary();
+        const storyId = btoa(encodeURIComponent(currentArticleUrl));
+
+        if (library[storyId]) {
+            if (!library[storyId].tags) library[storyId].tags = [];
+            if (!library[storyId].tags.includes(tagName)) {
+                library[storyId].tags.push(tagName);
+                saveLibrary(library); 
+                displayArticleTags(currentArticleUrl, library[storyId].tags);
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        action: 'cache-article',
+                        url: currentArticleUrl,
+                        article: library[storyId] 
+                    });
+                }
+                newTagInput.value = '';
+                showToast(`टैग "${tagName}" जोड़ा गया।`, "success");
+            } else {
+                showToast(`टैग "${tagName}" पहले से मौजूद है।`, "warning");
+            }
+        } else {
+            showToast("टैग जोड़ने के लिए आर्टिकल नहीं मिला।", "error");
+        }
+    }
+
+    function removeTagFromCurrentLibraryArticle(tagName) {
+        const libArticleView = document.getElementById('library-article-view');
+        if(!libArticleView) return;
+        const currentArticleUrl = libArticleView.dataset.currentArticleUrl;
+
+        if (!currentArticleUrl || !tagName) return;
+
+        const library = getLibrary();
+        const storyId = btoa(encodeURIComponent(currentArticleUrl));
+
+        if (library[storyId] && library[storyId].tags) {
+            library[storyId].tags = library[storyId].tags.filter(t => t !== tagName);
+            saveLibrary(library);
+            displayArticleTags(currentArticleUrl, library[storyId].tags);
+             if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    action: 'cache-article',
+                    url: currentArticleUrl,
+                    article: library[storyId] 
+                });
+            }
+            showToast(`टैग "${tagName}" हटा दिया गया।`);
+        }
+    }
+
+
+    async function copyLibraryArticleText() {
+        const textContentDiv = document.getElementById('lib-article-text-content');
+        const titleElem = document.getElementById('lib-article-title');
+        const urlElem = document.getElementById('lib-article-original-url');
+
+        if (!textContentDiv || !titleElem || !urlElem) {
+            showToast("टेक्स्ट कॉपी करने के लिए आवश्यक तत्व नहीं मिले।", "error");
+            return;
+        }
+
+        const title = titleElem.textContent || "";
+        const url = urlElem.href || "";
+        const contentToCopy = textContentDiv.textContent || "";
+
+        if (!contentToCopy.trim()) {
+            showToast('कॉपी करने के लिए कोई टेक्स्ट नहीं है।', 'error');
+            return;
+        }
+
+        const textToClipboard = `शीर्षक: ${title}\nमूल URL: ${url}\n\n${contentToCopy}`;
+        const copyButton = document.querySelector('#library-article-view button[onclick="copyLibraryArticleText()"]'); 
+
+        if (navigator.clipboard && window.isSecureContext) { 
+            try {
+                if (copyButton) copyButton.focus(); 
+                else document.body.focus(); 
+                
+                await new Promise(resolve => setTimeout(resolve, 100)); 
+
+                await navigator.clipboard.writeText(textToClipboard);
+                showToast('लाइब्रेरी आर्टिकल टेक्स्ट क्लिपबोर्ड पर कॉपी हो गया!', 'success');
+                if (copyButton) { 
+                    const originalButtonText = copyButton.textContent;
+                    copyButton.textContent = '✅ कॉपी हुआ';
+                    setTimeout(() => { copyButton.textContent = originalButtonText; }, 2000);
+                }
+                return; 
+            } catch (err) {
+                console.warn('navigator.clipboard.writeText विफल:', err.name, err.message, ' - फॉलबैक का प्रयास किया जा रहा है।');
+            }
+        }
+
+        const textArea = document.createElement("textarea");
+        textArea.value = textToClipboard;
+        textArea.style.position = "fixed"; 
+        textArea.style.top = "-9999px";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        
+        let success = false;
+        try {
+            textArea.select(); 
+            textArea.setSelectionRange(0, 99999); 
+            success = document.execCommand('copy');
+        } catch (errFallback) {
+            console.error('Fallback copy execCommand failed:', errFallback);
+            success = false;
+        }
+        
+        document.body.removeChild(textArea);
+
+        if (success) {
+            showToast('लाइब्रेरी आर्टिकल टेक्स्ट (फॉलबैक) कॉपी हो गया!', 'success');
+            if (copyButton) {
+                const originalButtonText = copyButton.textContent;
+                copyButton.textContent = '✅ कॉपी हुआ';
+                setTimeout(() => { copyButton.textContent = originalButtonText; }, 2000);
+            }
+        } else {
+            showToast('टेक्स्ट कॉपी करने में विफल। ब्राउज़र समर्थित नहीं या अनुमति नहीं है।', 'error', 5000);
+            try { window.prompt("टेक्स्ट कॉपी करने के लिए: Ctrl+C / Cmd+C, फिर Enter दबाएं", textToClipboard); } catch(e) {}
+        }
+    }
+
+    async function shareLibraryArticle(articleData) { 
+        if (!articleData || !articleData.title || !articleData.url || !articleData.textContent) {
+            showToast("शेयर करने के लिए पर्याप्त आर्टिकल जानकारी नहीं मिली।", "error");
+            return;
+        }
+
+        const title = articleData.title;
+        const url = articleData.url; 
+        const fullTextContent = articleData.textContent; 
+
+        if (!fullTextContent.trim() && !title.trim()) {
+             showToast("शेयर करने के लिए कोई कंटेंट नहीं है।", "error");
+            return;
+        }
+        
+        let shareText = `शीर्षक: ${title}\n`;
+        shareText += `मूल URL: ${url}\n\n`;
+        shareText += `कंटेंट:\n${fullTextContent}`;
+        
+        const MAX_SHARE_TEXT_LENGTH = 2000; 
+        if (shareText.length > MAX_SHARE_TEXT_LENGTH) {
+            shareText = shareText.substring(0, MAX_SHARE_TEXT_LENGTH) + "\n\n... (और भी कंटेंट)";
+            showToast("पूरा टेक्स्ट शेयर करने के लिए बहुत लंबा है, इसे छोटा किया गया है।", "warning", 4000);
+        }
+
+        const shareData = { title: title, text: shareText, url: url };
+
+        if (navigator.share) { 
+            try {
+                await navigator.share(shareData);
+                showToast('आर्टिकल सफलतापूर्वक शेयर किया गया!', 'success');
+            } catch (err) {
+                console.error('शेयर करने में त्रुटि:', err);
+                if (err.name !== 'AbortError') {
+                    showToast(`शेयर करने में विफल: ${err.message}`, 'error');
+                }
+            }
+        } else {
+            displayFallbackShareOptions(shareData); 
+        }
+    }
+
+    function displayFallbackShareOptions(shareData) {
+        const existingModal = document.getElementById('fallbackShareModal');
+        if (existingModal) existingModal.remove();
+
+        const fallbackContainer = document.createElement('div');
+        fallbackContainer.id = 'fallbackShareModal';
+        fallbackContainer.className = 'fallback-share-modal';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'बंद करें';
+        closeBtn.className = 'danger';
+        closeBtn.onclick = () => fallbackContainer.remove();
+
+        const heading = document.createElement('h4');
+        heading.textContent = 'आर्टिकल शेयर करें';
+        
+        const instruction = document.createElement('p');
+        instruction.textContent = 'नीचे दिए गए टेक्स्ट को कॉपी करें या शेयरिंग विकल्पों का उपयोग करें:';
+        
+        const textArea = document.createElement('textarea');
+        textArea.readOnly = true;
+        textArea.value = shareData.text || (shareData.title + "\n" + shareData.url); 
+        
+        const copyBtnModal = document.createElement('button'); 
+        copyBtnModal.textContent = 'टेक्स्ट कॉपी करें';
+        copyBtnModal.className = 'primary';
+        copyBtnModal.onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(textArea.value);
+                showToast("शेयर टेक्स्ट कॉपी हो गया!", "success");
+            } catch (e) {
+                showToast("टेक्स्ट कॉपी करने में विफल।", "error");
+            }
+        };
+
+        const whatsappLink = document.createElement('a');
+        whatsappLink.href = `https://wa.me/?text=${encodeURIComponent(shareData.title + '\n' + shareData.url + '\n\n' + (shareData.text && shareData.text.length > 1500 ? shareData.text.substring(0, 1500) + "..." : (shareData.text || '')) )}`;
+        whatsappLink.target = '_blank';
+        whatsappLink.textContent = 'WhatsApp';
+        
+        const emailLink = document.createElement('a');
+        const emailBody = `आर्टिकल: ${shareData.title}\nURL: ${shareData.url}\n\n${(shareData.text || '')}`;
+        emailLink.href = `mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(emailBody)}`;
+        emailLink.textContent = 'ईमेल';
+
+        fallbackContainer.appendChild(closeBtn);
+        fallbackContainer.appendChild(heading);
+        fallbackContainer.appendChild(instruction);
+        fallbackContainer.appendChild(textArea);
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.marginTop = '10px';
+        buttonContainer.appendChild(copyBtnModal);
+        buttonContainer.appendChild(whatsappLink);
+        buttonContainer.appendChild(emailLink);
+        fallbackContainer.appendChild(buttonContainer);
+
+        document.body.appendChild(fallbackContainer);
+    }
+
+    function updateLibraryCount() { 
+        const countSpan = document.getElementById('library-count');
+        if (countSpan) countSpan.textContent = `(${Object.keys(getLibrary()).length})`;
+    }
+
+    // --- Bookmark Functions ---
+    function getBookmarks() { return JSON.parse(localStorage.getItem(STORAGE_KEY_BOOKMARKS) || '[]'); }
+    function saveBookmarks(bookmarks) {
+        localStorage.setItem(STORAGE_KEY_BOOKMARKS, JSON.stringify(bookmarks));
+        updateBookmarkCount();
+        populateBookmarkFolderSelectors(); 
+        if(document.getElementById('Bookmarks').style.display === 'block') { 
+            loadBookmarks();
+        }
+    }
+
+    function addBookmark() {
+        const nameInput = document.getElementById('bookmarkName');
+        const urlInput = document.getElementById('bookmarkUrl');
+        const folderSelect = document.getElementById('bookmarkAssignFolder');
+
+        const name = nameInput.value.trim();
+        const url = urlInput.value.trim();
+        const folder = folderSelect.value || 'Default';
+
+        if (!url) {
+            showToast("कृपया बुकमार्क के लिए एक URL डालें।", "error");
+            return;
+        }
+        try { new URL(url); } catch (_) {
+            showToast("अमान्य URL डाला गया है।", "error");
+            return;
+        }
+
+        const bookmarks = getBookmarks();
+        if (bookmarks.some(bm => bm.url === url)) {
+            showToast("यह URL पहले से ही बुकमार्क किया हुआ है।", "warning");
+            return;
+        }
+
+        bookmarks.push({ name: name || url, url: url, addedAt: new Date().toISOString(), folder: folder });
+        saveBookmarks(bookmarks);
+        showToast("बुकमार्क जोड़ा गया!", "success");
+        if(nameInput) nameInput.value = '';
+        if(urlInput) urlInput.value = '';
+    }
+
+    function loadBookmarks() {
+        let bookmarks = getBookmarks(); 
+        const listDiv = document.getElementById('bookmark-list');
+        const folderFilterSelect = document.getElementById('bookmarkFolderFilter');
+        const selectedFolder = folderFilterSelect ? folderFilterSelect.value : "";
+
+        if (!listDiv) return;
+        populateBookmarkFolderSelectors(); 
+
+        if (selectedFolder) {
+            bookmarks = bookmarks.filter(bm => bm.folder === selectedFolder);
+        }
+        
+        bookmarks.sort((a,b) => new Date(b.addedAt) - new Date(a.addedAt));
+        
+        listDiv.innerHTML = (bookmarks.length === 0) ? '<p>अभी कोई बुकमार्क नहीं है या फ़िल्टर से कोई परिणाम नहीं मिला।</p>' : '';
+
+        bookmarks.forEach((bm) => { 
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'bookmark-item'; 
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'item-title'; 
+            titleDiv.style.cursor = 'pointer';
+            titleDiv.onclick = () => {
+                const articleUrlInput = document.getElementById('articleUrl');
+                if(articleUrlInput) articleUrlInput.value = bm.url;
+                openTool({currentTarget: document.querySelector('.tab-link[onclick*="ArticleExtractor"]')}, 'ArticleExtractor');
+                ae_startExtraction(); 
+            };
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.style.fontWeight = 'bold';
+            nameSpan.textContent = bm.name;
+            
+            const urlSpan = document.createElement('span');
+            urlSpan.textContent = ` (${bm.url.length > 30 ? bm.url.substring(0, 30) + "..." : bm.url})`;
+            urlSpan.style.fontSize = "0.8em";
+            urlSpan.style.opacity = "0.7";
+            urlSpan.style.marginLeft = "5px";
+
+            const folderSpan = document.createElement('span'); 
+            folderSpan.textContent = ` [${bm.folder || 'Default'}]`;
+            folderSpan.style.fontSize = "0.7em";
+            folderSpan.style.opacity = "0.6";
+            folderSpan.style.marginLeft = "5px";
+
+
+            titleDiv.appendChild(nameSpan);
+            titleDiv.appendChild(urlSpan);
+            titleDiv.appendChild(folderSpan);
+
+
+            const controlsDiv = document.createElement('div');
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn'; 
+            deleteBtn.textContent = 'हटाएँ';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                const updatedBookmarks = getBookmarks().filter(bookmark => bookmark.url !== bm.url);
+                saveBookmarks(updatedBookmarks); 
+            };
+            controlsDiv.appendChild(deleteBtn);
+            
+            itemDiv.append(titleDiv, controlsDiv);
+            listDiv.appendChild(itemDiv);
+        });
+        updateBookmarkCount();
+    }
+
+    function getBookmarkFolders() {
+        const bookmarks = getBookmarks();
+        const folders = new Set(['Default']);
+        bookmarks.forEach(bm => {
+            if (bm.folder) folders.add(bm.folder);
+        });
+        return Array.from(folders).sort((a,b) => a.localeCompare(b, 'hi'));
+    }
+
+    function populateBookmarkFolderSelectors() {
+        const folders = getBookmarkFolders();
+        const filterSelect = document.getElementById('bookmarkFolderFilter');
+        const assignSelect = document.getElementById('bookmarkAssignFolder');
+
+        if (filterSelect) {
+            const currentFilterValue = filterSelect.value;
+            filterSelect.innerHTML = '<option value="">सभी फ़ोल्डर</option>';
+            folders.forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder; option.textContent = folder;
+                filterSelect.appendChild(option);
+            });
+            if (folders.includes(currentFilterValue)) filterSelect.value = currentFilterValue;
+        }
+        if (assignSelect) {
+            const currentAssignValue = assignSelect.value;
+            assignSelect.innerHTML = ''; 
+            folders.forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder; option.textContent = folder;
+                assignSelect.appendChild(option);
+            });
+             if (folders.includes(currentAssignValue)) assignSelect.value = currentAssignValue;
+             else if (folders.length > 0) assignSelect.value = folders.find(f => f === 'Default') || folders[0]; 
+        }
+    }
+    
+    function createBookmarkFolder() {
+        const folderNameInput = document.getElementById('newBookmarkFolderName');
+        if (!folderNameInput || !folderNameInput.value.trim()) {
+            showToast("कृपया फ़ोल्डर का नाम डालें।", "error");
+            return;
+        }
+        const folderName = folderNameInput.value.trim();
+        const existingFolders = getBookmarkFolders();
+        if (existingFolders.map(f => f.toLowerCase()).includes(folderName.toLowerCase())) {
+            showToast(`फ़ोल्डर "${folderName}" पहले से मौजूद है।`, "warning");
+            return;
+        }
+        
+        const assignSelect = document.getElementById('bookmarkAssignFolder');
+        const filterSelect = document.getElementById('bookmarkFolderFilter');
+        if(assignSelect && !Array.from(assignSelect.options).some(opt => opt.value === folderName)) {
+            const option = document.createElement('option');
+            option.value = folderName; option.textContent = folderName;
+            assignSelect.appendChild(option);
+            assignSelect.value = folderName; // नए बनाए गए फ़ोल्डर को चुनें
+        }
+         if(filterSelect && !Array.from(filterSelect.options).some(opt => opt.value === folderName)) {
+            const optionF = document.createElement('option');
+            optionF.value = folderName; optionF.textContent = folderName;
+            filterSelect.appendChild(optionF);
+        }
+        showToast(`फ़ोल्डर "${folderName}" अब चयन के लिए उपलब्ध है।`, "info");
+        folderNameInput.value = '';
+    }
+
+
+    function updateBookmarkCount() {
+        const countSpan = document.getElementById('bookmark-count');
+        if (countSpan) {
+            countSpan.textContent = `(${getBookmarks().length})`;
+        }
+    }
+
+
+    // --- UI Enhancement Functions ---
+    function changeFontSize(delta) { 
+        const resultBox = document.getElementById('ae_result');
+        if (!resultBox) return;
+        let currentSize = parseFloat(window.getComputedStyle(resultBox).fontSize);
+        currentSize += delta;
+        if (currentSize < 10) currentSize = 10;
+        if (currentSize > 30) currentSize = 30;
+        resultBox.style.fontSize = currentSize + 'px';
+        localStorage.setItem(STORAGE_KEY_FONT_SIZE, currentSize);
+    }
+    function applySavedFontSize() { 
+        const savedSize = localStorage.getItem(STORAGE_KEY_FONT_SIZE);
+        const resultBox = document.getElementById('ae_result');
+        if (savedSize && resultBox) {
+            resultBox.style.fontSize = savedSize + 'px';
+        }
+    }
+
+    function changeLibraryFontSize(delta) {
+        const libTextContent = document.getElementById('lib-article-text-content');
+        if (!libTextContent) return;
+
+        let currentSize = parseFloat(window.getComputedStyle(libTextContent).fontSize);
+        currentSize += delta;
+        if (currentSize < 10) currentSize = 10; 
+        if (currentSize > 30) currentSize = 30; 
+        libTextContent.style.fontSize = currentSize + 'px';
+        localStorage.setItem(STORAGE_KEY_LIBRARY_FONT_SIZE, currentSize); 
+    }
+
+    function applySavedLibraryFontSize() {
+        const savedSize = localStorage.getItem(STORAGE_KEY_LIBRARY_FONT_SIZE);
+        const libTextContent = document.getElementById('lib-article-text-content');
+        
+        if (libTextContent) {
+            if (savedSize) {
+                libTextContent.style.fontSize = savedSize + 'px';
+            } else {
+                 libTextContent.style.fontSize = 'var(--font-size-base)'; 
+            }
+        }
+    }
+
+
+    function setSpeechRate(rate) { 
+        if (speechApiSupported && utterance) {
+            utterance.rate = parseFloat(rate);
+            localStorage.setItem(STORAGE_KEY_SPEECH_RATE, rate);
+        }
+    }
+    function applySavedSpeechRate() { 
+        const savedRate = localStorage.getItem(STORAGE_KEY_SPEECH_RATE);
+        const ttsSpeedSelect = document.getElementById('ttsSpeed');
+        if (savedRate && ttsSpeedSelect) {
+            ttsSpeedSelect.value = savedRate;
+            if (utterance) utterance.rate = parseFloat(savedRate);
+        }
+    }
+
+    function setDisplayMode(mode) {
+        currentDisplayMode = mode;
+        localStorage.setItem(STORAGE_KEY_DISPLAY_MODE, mode);
+        
+        const resultBox = document.getElementById('ae_result');
+        if (resultBox) {
+            const stories = resultBox.querySelectorAll('.single-story'); 
+            stories.forEach(storyDiv => {
+                const images = storyDiv.querySelectorAll('img, figure, picture'); 
+                if (mode === 'text-only') {
+                    images.forEach(imgEl => imgEl.style.display = 'none');
+                } else {
+                    images.forEach(imgEl => imgEl.style.display = ''); 
+                }
+            });
+        }
+        showToast(`डिस्प्ले मोड "${mode === 'text-only' ? 'केवल टेक्स्ट' : 'इमेज और टेक्स्ट'}" पर सेट किया गया।`, 'success');
+    }
+
+    function applySavedDisplayMode() {
+        const savedMode = localStorage.getItem(STORAGE_KEY_DISPLAY_MODE) || 'image-text';
+        const displayModeSelect = document.getElementById('displayMode');
+        if (displayModeSelect) {
+            displayModeSelect.value = savedMode;
+        }
+        currentDisplayMode = savedMode; 
+        if (document.getElementById('ae_result')?.innerHTML.trim() !== '') {
+            setDisplayMode(currentDisplayMode);
+        }
+    }
+
+
+    function populateVoiceList() { 
+        if (!speechApiSupported || !speechSynth) return;
+        
+        const setVoices = () => {
+            const voices = speechSynth.getVoices();
+            const voiceSelector = document.getElementById('voiceSelector');
+            const voiceSelectorContainer = document.getElementById('voiceSelectorContainer');
+
+            if (!voiceSelector || !voiceSelectorContainer ) {
+                if (utterance) utterance.lang = 'hi-IN'; // Fallback
+                return;
+            }
+             if (voices.length === 0) {
+                 if (utterance) utterance.lang = 'hi-IN'; // Fallback
+                 console.warn("कोई आवाज़ लोड नहीं हुई।");
+                 return;
+             }
+
+            voiceSelector.innerHTML = ''; 
+            let hasHindiVoices = false;
+
+            voices.forEach(voice => {
+                if (voice.lang.toLowerCase().startsWith('hi')) {
+                    const option = document.createElement('option');
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    option.setAttribute('data-lang', voice.lang);
+                    option.setAttribute('data-name', voice.name);
+                    voiceSelector.appendChild(option);
+                    hasHindiVoices = true;
+                }
+            });
+
+            if (hasHindiVoices) {
+                voiceSelectorContainer.style.display = 'inline-block';
+                const savedVoiceName = localStorage.getItem(STORAGE_KEY_VOICE_NAME);
+                let voiceSet = false;
+                if (savedVoiceName) {
+                    const selectedOption = Array.from(voiceSelector.options).find(opt => opt.getAttribute('data-name') === savedVoiceName);
+                    if (selectedOption) {
+                        selectedOption.selected = true;
+                        setSpeechVoice(savedVoiceName, false);
+                        voiceSet = true;
+                    }
+                }
+                if (!voiceSet && voiceSelector.options.length > 0) {
+                     setSpeechVoice(voiceSelector.options[0].getAttribute('data-name'), false);
+                }
+            } else {
+                voiceSelectorContainer.style.display = 'none';
+                if (utterance) utterance.lang = 'hi-IN'; 
+            }
+        };
+
+        // आवाज़ें एसिंक्रोनस रूप से लोड हो सकती हैं
+        if (speechSynth.getVoices().length > 0) {
+            setVoices();
+        } else if (speechSynth.onvoiceschanged !== undefined) {
+             let voiceLoadAttempts = 0;
+             const voiceInterval = setInterval(() => {
+                const voices = speechSynth.getVoices();
+                if (voices.length > 0 || voiceLoadAttempts > 10) { // 10 प्रयास या 5 सेकंड
+                    clearInterval(voiceInterval);
+                    setVoices();
+                }
+                voiceLoadAttempts++;
+            }, 500);
+            speechSynth.onvoiceschanged = () => { // यह केवल एक बार फायर होना चाहिए
+                clearInterval(voiceInterval);
+                speechSynth.onvoiceschanged = null; 
+                setVoices();
+            };
+        } else {
+            // उन ब्राउज़रों के लिए फ़ॉलबैक जहां onvoiceschanged समर्थित नहीं है
+            setTimeout(setVoices, 1000); 
+        }
+    }
+    function setSpeechVoice(voiceName, showMsg = true) { 
+        if (!speechApiSupported || !voiceName || !utterance) return;
+        const voices = speechSynth.getVoices();
+        const selectedVoice = voices.find(voice => voice.name === voiceName);
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+            utterance.lang = selectedVoice.lang; 
+            localStorage.setItem(STORAGE_KEY_VOICE_NAME, selectedVoice.name);
+            if (showMsg) showToast(`आवाज़ "${selectedVoice.name}" पर सेट की गई।`, "success");
+        } else if (showMsg) {
+             showToast(`आवाज़ "${voiceName}" नहीं मिली। डिफ़ॉल्ट का उपयोग किया जा रहा है।`, "error");
+             if(utterance) utterance.lang = 'hi-IN'; 
+        }
+    }
+    function showToast(message, type = 'info', duration = 3000) { 
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast-notification ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => { toast.classList.add('show'); }, 100);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => { toast.remove(); }, 500);
+        }, duration);
+    }
+    function scrollToTop() { window.scrollTo({top: 0, behavior: 'smooth'}); }
+
+    // --- Internal Navigation History Functions --- 
+    function addToHistory(url) {
+        if (!url) return;
+        if (currentHistoryIndex < navigationHistory.length - 1) {
+            navigationHistory = navigationHistory.slice(0, currentHistoryIndex + 1);
+        }
+        if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length -1] !== url) {
+            navigationHistory.push(url);
+            currentHistoryIndex = navigationHistory.length - 1;
+        }
+        updateHistoryButtons();
+    }
+
+    function updateHistoryButtons() {
+        const backBtn = document.getElementById('historyBackBtn');
+        const forwardBtn = document.getElementById('historyForwardBtn');
+        const historyContainer = document.getElementById('internalNavHistoryContainer');
+
+        if (!backBtn || !forwardBtn || !historyContainer) return;
+
+        const articleExtractorVisible = document.getElementById('ArticleExtractor').style.display === 'block';
+        const hasContent = document.getElementById('ae_result')?.innerHTML.trim() !== '';
+
+        if (articleExtractorVisible && (navigationHistory.length > 1 || (hasContent && navigationHistory.length > 0) )) {
+            historyContainer.style.display = 'block';
+        } else {
+            historyContainer.style.display = 'none';
+        }
+        
+        backBtn.disabled = currentHistoryIndex <= 0;
+        forwardBtn.disabled = currentHistoryIndex >= navigationHistory.length - 1;
+    }
+
+    function navigateHistory(direction) { 
+        if (isNavigatingHistory) return; 
+
+        isNavigatingHistory = true;
+        const newIndex = currentHistoryIndex + direction;
+        if (newIndex >= 0 && newIndex < navigationHistory.length) {
+            currentHistoryIndex = newIndex;
+            const urlToLoad = navigationHistory[currentHistoryIndex];
+            
+            const articleUrlInput = document.getElementById('articleUrl');
+            if (articleUrlInput) articleUrlInput.value = urlToLoad;
+            
+            const crawlCheckbox = document.getElementById('crawlSiteToggle');
+            if (crawlCheckbox) crawlCheckbox.checked = false; 
+
+            showToast(`इतिहास से लोड हो रहा है: ${urlToLoad.substring(0,50)}...`, 'info');
+            ae_startExtraction(true).finally(() => { 
+                isNavigatingHistory = false;
+                updateHistoryButtons();
+            });
+        } else {
+            isNavigatingHistory = false; 
+        }
+        updateHistoryButtons(); 
+    }
+
+     // --- Offline Article Function ---
+    function displayOfflineArticle() {
+        const offlineArticleDataString = localStorage.getItem(STORAGE_KEY_OFFLINE_ARTICLE);
+        if (offlineArticleDataString) {
+            try {
+                const articleData = JSON.parse(offlineArticleDataString);
+                const resultDiv = document.getElementById('ae_result');
+                const articleUrlInput = document.getElementById('articleUrl');
+                const loadingDiv = document.getElementById('ae_loading');
+
+                if (resultDiv && articleUrlInput && loadingDiv) {
+                    resultDiv.innerHTML = ''; 
+                    resultDiv.appendChild(createStoryElement(articleData, articleData.url));
+                    
+                    articleUrlInput.value = articleData.url; 
+                    
+                    const articleSettingsPanel = document.getElementById('article-settings-panel');
+                    if (articleSettingsPanel) articleSettingsPanel.style.display = 'flex';
+                    
+                    showToast(`ऑफ़लाइन सहेजा गया आर्टिकल "${articleData.title}" दिखाया जा रहा है।`, 'info', 4000);
+                    if(loadingDiv) loadingDiv.style.display = 'none';
+
+                     if (!isNavigatingHistory && (navigationHistory.length === 0 || navigationHistory[navigationHistory.length -1] !== articleData.url)) {
+                         addToHistory(articleData.url);
+                     }
+                }
+            } catch (e) {
+                console.error("ऑफ़लाइन आर्टिकल पार्स करने में त्रुटि:", e);
+                localStorage.removeItem(STORAGE_KEY_OFFLINE_ARTICLE); 
+            }
+        } else {
+            const resultDiv = document.getElementById('ae_result');
+            if(resultDiv && resultDiv.innerHTML.trim() === '') {
+                 resultDiv.innerHTML = "<p><em>URL डालें या बुकमार्क/लाइब्रेरी से चुनें। ऑफ़लाइन पढ़ने के लिए कोई आर्टिकल सहेजा नहीं गया है।</em></p>";
+            }
+        }
+    }
+
+    // --- Import/Export Functions ---
+    function exportData(data, filename) {
+        if (!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0) ) {
+            showToast("एक्सपोर्ट करने के लिए कोई डेटा नहीं है।", "error");
+            return;
+        }
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast(`${filename} सफलतापूर्वक एक्सपोर्ट किया गया!`, "success");
+    }
+
+    function exportLibrary() {
+        const library = getLibrary();
+        exportData(library, 'article_library_backup.json');
+    }
+
+    function exportBookmarks() {
+        const bookmarks = getBookmarks();
+        exportData(bookmarks, 'article_bookmarks_backup.json');
+    }
+
+    function importData(event, type, mergeFunction) {
+        const file = event.target.files[0];
+        if (!file) { showToast("कोई फ़ाइल नहीं चुनी गई।", "error"); return; }
+        if (file.type !== "application/json") {
+            showToast("अमान्य फ़ाइल प्रकार। कृपया .json फ़ाइल चुनें।", "error");
+            event.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                mergeFunction(importedData); 
+            } catch (err) {
+                showToast(`इंपोर्ट करने में त्रुटि: ${err.message}`, "error", 5000);
+                console.error("Import error:", err);
+            } finally {
+                event.target.value = '';
+            }
+        };
+        reader.onerror = () => {
+            showToast("फ़ाइल पढ़ने में त्रुटि।", "error");
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    function importLibraryHandler(event) {
+        const confirmation = confirm("चेतावनी: यह मौजूदा लाइब्रेरी डेटा के साथ इंपोर्ट किए गए डेटा को मर्ज करेगा। समान आईडी वाले आइटम ओवरराइट हो जाएंगे। क्या आप जारी रखना चाहते हैं?");
+        if (confirmation) {
+            importData(event, 'library', (importedLibrary) => {
+                let currentLibrary = getLibrary();
+                let newCount = 0;
+                let updatedCount = 0;
+
+                for (const storyId in importedLibrary) {
+                    if (importedLibrary.hasOwnProperty(storyId)) {
+                        if (currentLibrary.hasOwnProperty(storyId)) {
+                            updatedCount++;
+                        } else {
+                            newCount++;
+                        }
+                        // सुनिश्चित करें कि टैग एक एरे है
+                        if (importedLibrary[storyId] && !Array.isArray(importedLibrary[storyId].tags)) {
+                            importedLibrary[storyId].tags = [];
+                        }
+                        currentLibrary[storyId] = importedLibrary[storyId]; 
+                        
+                        if (navigator.serviceWorker && navigator.serviceWorker.controller && currentLibrary[storyId].url) {
+                            navigator.serviceWorker.controller.postMessage({
+                                action: 'cache-article',
+                                url: currentLibrary[storyId].url,
+                                article: currentLibrary[storyId]
+                            });
+                        }
+                    }
+                }
+                saveLibrary(currentLibrary);
+                showToast(`${newCount} नए और ${updatedCount} अपडेटेड लाइब्रेरी आइटम सफलतापूर्वक इंपोर्ट किए गए!`, "success");
+            });
+        } else {
+            event.target.value = '';
+            showToast("लाइब्रेरी इंपोर्ट रद्द कर दिया गया।", "info");
+        }
+    }
+
+    function importBookmarksHandler(event) {
+        const confirmation = confirm("चेतावनी: यह मौजूदा बुकमार्क में नए (गैर-डुप्लिकेट URL वाले) बुकमार्क जोड़ेगा। क्या आप जारी रखना चाहते हैं?");
+        if (confirmation) {
+            importData(event, 'bookmarks', (importedBookmarks) => {
+                let currentBookmarks = getBookmarks();
+                const currentUrls = new Set(currentBookmarks.map(bm => bm.url));
+                let newBookmarksAdded = 0;
+                
+                if (!Array.isArray(importedBookmarks)) {
+                    showToast("इंपोर्ट की गई बुकमार्क फ़ाइल का प्रारूप अमान्य है।", "error");
+                    return;
+                }
+
+                importedBookmarks.forEach(bm => {
+                    if (bm && bm.url && !currentUrls.has(bm.url)) {
+                        bm.folder = bm.folder || 'Default';
+                        currentBookmarks.push(bm);
+                        newBookmarksAdded++;
+                    }
+                });
+                saveBookmarks(currentBookmarks);
+                showToast(`${newBookmarksAdded} नए बुकमार्क सफलतापूर्वक इंपोर्ट किए गए!`, "success");
+            });
+        } else {
+            event.target.value = '';
+            showToast("बुकमार्क इंपोर्ट रद्द कर दिया गया।", "info");
+        }
+    }
+
+
+    // --- Event Listeners ---
+    window.onscroll = () => { 
+        const progressBar = document.getElementById('progress-bar');
+        const backToTopBtn = document.getElementById('backToTopBtn');
+        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+        
+        if (progressBar) {
+            if(totalHeight > 0) {
+                progressBar.style.width = `${(window.pageYOffset / totalHeight) * 100}%`;
+            } else {
+                progressBar.style.width = '0%';
+            }
+        }
+
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 600 && 
+            allStoryLinks.length > 0 && 
+            currentLinkIndex < allStoryLinks.length &&
+            !isLoadingNext) { 
+            loadNextArticleIfIdle(); 
+        }
+
+        if (backToTopBtn) {
+            if (document.body.scrollTop > 100 || document.documentElement.scrollTop > 100) {
+                backToTopBtn.style.display = "block";
+            } else {
+                backToTopBtn.style.display = "none";
+            }
+        }
+    };
+    // Google Search Function
+    function performGoogleSearch() {
+        const queryInput = document.getElementById('googleSearchQuery');
+        if (!queryInput) return;
+
+        const query = queryInput.value.trim();
+        if (!query) {
+            showToast("कृपया खोजने के लिए कुछ टाइप करें।", "info");
+            queryInput.focus();
+            return;
+        }
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        window.open(searchUrl, '_blank');
+    }
+
+
+    document.addEventListener('DOMContentLoaded', () => {
+        applySavedTheme();
+        updateLibraryCount();
+        updateBookmarkCount(); 
+        applySavedFontSize();
+        applySavedLibraryFontSize(); 
+        applySavedSpeechRate();
+        applySavedDisplayMode(); 
+        toggleDepthSelector(); 
+        populateTagFilter(); 
+        populateBookmarkFolderSelectors(); 
+
+        populateVoiceList(); // आवाज़ सूची लोड करने का प्रयास करें
+        
+        const googleSearchInput = document.getElementById('googleSearchQuery');
+        if (googleSearchInput) {
+            googleSearchInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); 
+                    performGoogleSearch();
+                }
+            });
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialUrlFromQuery = urlParams.get('url');
+        const resultBox = document.getElementById('ae_result');
+        const articleUrlInput = document.getElementById('articleUrl');
+
+        if (initialUrlFromQuery) {
+            if (articleUrlInput) articleUrlInput.value = initialUrlFromQuery;
+            ae_startExtraction();
+        } else if (resultBox && resultBox.innerHTML.trim() === '') {
+             displayOfflineArticle();
+        }
+        
+        const firstTabLink = document.querySelector('.tab-link');
+        if(firstTabLink && !initialUrlFromQuery) { 
+            openTool({currentTarget: firstTabLink}, 'ArticleExtractor');
+        } else if (initialUrlFromQuery) {
+            openTool({currentTarget: document.querySelector('.tab-link[onclick*="ArticleExtractor"]')}, 'ArticleExtractor');
+        }
+        updateHistoryButtons();
+
+        // --- सर्विस वर्कर पंजीकरण (Blob URL के साथ) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                try {
+                    const blob = new Blob([serviceWorkerCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(blob);
+                    
+                    // अधिकतम संभव स्कोप सेट करने का प्रयास करें।
+                    // यह '/'' होना चाहिए, लेकिन Blob URL के साथ यह मुश्किल हो सकता है।
+                    // डिफ़ॉल्ट स्कोप वर्तमान डायरेक्टरी होगा (उदा. '/my-app/'),
+                    // जो ठीक हो सकता है यदि सभी नियंत्रित संसाधन उस पाथ के नीचे हैं।
+                    // यदि आप इसे रूट ('/') पर चलाना चाहते हैं और यह एक सबडायरेक्टरी में है, तो यह मुश्किल होगा।
+                    // अभी के लिए, हम डिफ़ॉल्ट स्कोप का उपयोग करेंगे।
+                    navigator.serviceWorker.register(swUrl /*, { scope: '/' } */) // scope वैकल्पिक है
+                        .then(registration => {
+                            console.log('ServiceWorker (Blob) registration successful with scope: ', registration.scope);
+                            showToast("ऑफ़लाइन सुविधाएँ (Blob SW) लोड हो गईं!", "success", 4000);
+
+                            // सुनें कि क्या नया वर्कर इंस्टॉल हो गया है
+                            registration.addEventListener('updatefound', () => {
+                                const newWorker = registration.installing;
+                                if (newWorker) {
+                                    newWorker.addEventListener('statechange', () => {
+                                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                            // नया वर्कर इंस्टॉल हो गया है, पेज को रीलोड करने का सुझाव दें
+                                            // या उपयोगकर्ता को सूचित करें कि अपडेट लागू हो गया है
+                                            console.log('[App] New Service Worker installed. Controller available.');
+                                        }
+                                    });
+                                }
+                            });
+                        })
+                        .catch(err => {
+                            console.error('ServiceWorker (Blob) registration failed: ', err);
+                            showToast("ऑफ़लाइन सुविधाएँ (Blob SW) लोड करने में विफल: " + err.message, "error", 7000);
+                        });
+                } catch (e) {
+                     console.error('Error creating/registering Blob ServiceWorker:', e);
+                     showToast("Blob SW बनाने में त्रुटि: " + e.message, "error", 7000);
+                }
+            });
+             // नियंत्रक बदलने पर सुनें
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                console.log('[App] New Service Worker has taken control. Consider reloading.');
+                // showToast("ऐप अपडेट हो गया है। परिवर्तनों को देखने के लिए रीलोड करें।", "info", 5000);
+            });
+
+        } else {
+            showToast("आपके ब्राउज़र में सर्विस वर्कर समर्थित नहीं हैं। ऑफ़लाइन सुविधाएँ उपलब्ध नहीं होंगी।", "warning", 5000);
+        }
+    });
+
+    </script>
+</body>
+    </html>
